@@ -1,0 +1,2831 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,minimum-scale=1.0,user-scalable=no,viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#000010">
+<meta name="format-detection" content="telephone=no">
+<title>CYBER RUNNER — 黒工電子科</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;}
+html{width:100%;height:100%;overflow:hidden;background:#000;}
+body{
+  width:100%;
+  /* 100vh はモバイルのアドレスバー伸縮で不安定なため、JSで実測したpx値を --vh-real に格納し優先使用する */
+  height:calc(var(--vh-real, 1px) * 100);
+  min-height:-webkit-fill-available;
+  overflow:hidden;background:#000;touch-action:none;
+  position:fixed;inset:0;
+  /* iOSのゴム引っ張り・スクロール誤発火を抑止 */
+  overscroll-behavior:none;
+}
+#gc{display:block;position:fixed;inset:0;width:100%;height:100%;z-index:1;touch-action:none;}
+
+/* ══ HUD ══ */
+#hud{display:none;position:fixed;top:0;left:0;right:0;z-index:20;pointer-events:none;}
+#hud-inner{display:flex;justify-content:space-between;align-items:flex-start;padding:calc(10px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-right)) 0 calc(14px + env(safe-area-inset-left));
+  background:linear-gradient(180deg,rgba(0,0,14,.9) 0%,rgba(0,0,14,.5) 65%,transparent 100%);}
+.hb{text-align:center;min-width:64px;padding:5px 8px 6px;background:rgba(0,243,255,.05);
+  border:1px solid rgba(0,243,255,.22);border-radius:3px;
+  clip-path:polygon(5px 0,100% 0,100% calc(100% - 5px),calc(100% - 5px) 100%,0 100%,0 5px);}
+.hl{display:block;font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:3px;color:rgba(0,243,255,.55);margin-bottom:1px;}
+.hv{display:block;font-family:'Orbitron',monospace;font-size:clamp(14px,3.8vw,20px);font-weight:700;color:#fff;text-shadow:0 0 10px #00f3ff;}
+#skill-badge{font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:1px;padding:2px 6px;border-radius:3px;margin-top:2px;transition:all .2s;display:block;}
+#skill-badge.r{background:rgba(0,243,255,.18);color:#00f3ff;border:1px solid rgba(0,243,255,.4);}
+#skill-badge.c{background:rgba(255,80,0,.14);color:#ff5000;border:1px solid rgba(255,80,0,.3);}
+/* speed bar */
+#spb-wrap{position:fixed;top:calc(52px + env(safe-area-inset-top));left:0;right:0;height:3px;z-index:20;pointer-events:none;background:rgba(255,255,255,.05);}
+#spb{height:100%;width:0%;transition:width .5s;background:linear-gradient(90deg,#00f3ff,#bd00ff);}
+/* HUD追加要素 */
+.h-best{display:block;font-family:'Share Tech Mono',monospace;font-size:7px;letter-spacing:1px;color:rgba(255,215,0,.7);margin-top:1px;}
+#skill-gauge-wrap{width:100%;height:3px;background:rgba(255,255,255,.12);border-radius:2px;margin-top:3px;overflow:hidden;}
+#skill-gauge{height:100%;width:100%;background:linear-gradient(90deg,#00f3ff,#bd00ff);transition:width .1s linear;}
+#skill-gauge.ready{background:#00f3ff;box-shadow:0 0 8px #00f3ff;animation:skillReadyPulse 1.2s ease-in-out infinite;}
+@keyframes skillReadyPulse{0%,100%{opacity:1;}50%{opacity:.55;}}
+/* ポーズボタン */
+#btn-pause{display:none;position:fixed;top:calc(10px + env(safe-area-inset-top));left:calc(14px + env(safe-area-inset-left));
+  z-index:30;width:34px;height:34px;border-radius:4px;background:rgba(0,10,20,.55);
+  border:1px solid rgba(0,243,255,.35);color:#00f3ff;font-size:11px;font-family:'Share Tech Mono',monospace;
+  cursor:pointer;letter-spacing:1px;}
+#btn-pause:active{background:rgba(0,243,255,.2);}
+/* ポーズメニュー */
+#pause-menu{position:fixed;inset:0;z-index:110;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:rgba(2,2,14,.85);backdrop-filter:blur(6px);gap:12px;}
+#pause-menu.hid{display:none;}
+/* 改善8: ポーズ中の背景に淡いパルス(完全静止だと寂しいので、ゆっくり明滅させる) */
+#pause-menu::before{content:'';position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(ellipse at 50% 45%,rgba(0,243,255,.10),transparent 60%);
+  animation:pausePulse 3s ease-in-out infinite;}
+@keyframes pausePulse{0%,100%{opacity:.4;}50%{opacity:1;}}
+/* 改善15: ポーズ画面の操作説明 */
+.pause-help{display:flex;flex-direction:column;gap:5px;margin-bottom:6px;padding:12px 16px;
+  background:rgba(0,243,255,.04);border:1px solid rgba(0,243,255,.2);border-radius:6px;z-index:1;}
+.pause-help-row{display:grid;grid-template-columns:80px 1fr;gap:12px;font-family:'Share Tech Mono',monospace;
+  font-size:10px;letter-spacing:1px;color:rgba(200,220,255,.75);align-items:center;}
+.pause-help-row span:first-child{color:#00f3ff;text-align:right;font-weight:700;}
+.pause-title{font-family:'Orbitron',monospace;font-size:clamp(24px,7vw,42px);font-weight:900;letter-spacing:6px;
+  color:#00f3ff;text-shadow:0 0 24px #00f3ff;margin-bottom:8px;}
+.pause-btn{min-width:220px;position:relative;z-index:1;}
+.pause-title{position:relative;z-index:1;}
+#btn-resume{background:#00f3ff;color:#000;border:none;box-shadow:0 0 20px rgba(0,243,255,.6);}
+#btn-pause-quit{background:rgba(200,220,255,.1);color:#fff;border:2px solid rgba(200,220,255,.4);}
+/* カウントダウン */
+#countdown{position:fixed;inset:0;z-index:105;display:none;align-items:center;justify-content:center;
+  font-family:'Orbitron',monospace;font-size:clamp(60px,20vw,140px);font-weight:900;color:#00f3ff;
+  text-shadow:0 0 40px #00f3ff;pointer-events:none;text-align:center;padding:0 20px;}
+#countdown.show{display:flex;}
+#countdown .cd-num{animation:cdPop .8s ease-out;white-space:nowrap;}
+/* 「スタート!」のような文字列は数字より小さめに表示してはみ出しを防ぐ */
+#countdown .cd-num.word{font-size:clamp(40px,13vw,90px);}
+@keyframes cdPop{0%{transform:scale(2.4);opacity:0;}30%{opacity:1;}100%{transform:scale(.6);opacity:0;}}
+/* ハイパードライブ予兆 */
+#hyper-warn{position:fixed;top:calc(58px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);font-family:'Orbitron',monospace;
+  font-size:clamp(11px,3vw,15px);font-weight:900;letter-spacing:3px;color:#ff00cc;
+  text-shadow:0 0 14px #ff00cc;pointer-events:none;z-index:25;opacity:0;transition:opacity .15s;}
+/* ミュートボタン(常時表示) */
+#btn-mute{position:fixed;bottom:calc(10px + env(safe-area-inset-bottom));right:calc(12px + env(safe-area-inset-right));
+  z-index:120;width:40px;height:40px;border-radius:50%;background:rgba(0,10,20,.6);
+  border:1px solid rgba(0,243,255,.35);color:#00f3ff;font-size:17px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;transition:all .15s;}
+#btn-mute:active{transform:scale(.92);}
+#btn-mute.muted{border-color:rgba(255,80,80,.5);color:#ff8080;}
+/* hyperdrive badge */
+#hyper-badge{position:fixed;top:calc(58px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);font-family:'Orbitron',monospace;
+  font-size:clamp(12px,3.5vw,18px);font-weight:900;letter-spacing:4px;color:#ff00cc;
+  text-shadow:0 0 20px #ff00cc,0 0 40px #ff00cc;pointer-events:none;z-index:25;opacity:0;transition:opacity .25s;}
+/* popup (near miss / just etc) */
+#popup{position:fixed;top:34%;left:50%;transform:translate(-50%,-50%) scale(1);font-family:'Orbitron',monospace;
+  font-size:clamp(16px,4.5vw,26px);font-weight:900;pointer-events:none;z-index:30;opacity:0;
+  transition:opacity .15s,transform .15s;white-space:nowrap;}
+#popup.punch{transform:translate(-50%,-50%) scale(1.35);}
+/* just evade flash */
+#evade-hud{position:fixed;top:42%;left:50%;transform:translate(-50%,-50%);font-family:'Orbitron',monospace;
+  font-size:clamp(13px,3.8vw,20px);font-weight:900;color:#fff;letter-spacing:3px;
+  text-shadow:0 0 18px #fff,0 0 36px #00f3ff;pointer-events:none;z-index:31;opacity:0;transition:opacity .1s;}
+/* combo flash */
+#combo-flash{position:fixed;top:25%;left:50%;transform:translate(-50%,-50%) scale(1) rotate(0deg);font-family:'Orbitron',monospace;
+  font-size:clamp(20px,5.5vw,38px);font-weight:900;color:#fff;text-shadow:0 0 18px #00f3ff;
+  pointer-events:none;z-index:30;opacity:0;transition:opacity .25s,transform .25s cubic-bezier(.2,1.6,.4,1);}
+#combo-flash.punch{transform:translate(-50%,-50%) scale(1.2) rotate(-2deg);}
+/* title unlock */
+#title-unlock{position:fixed;top:20%;left:50%;transform:translate(-50%,-50%);font-family:'Orbitron',monospace;
+  font-size:clamp(13px,3.5vw,18px);font-weight:900;color:#ffd700;letter-spacing:2px;
+  text-shadow:0 0 16px #ffd700;pointer-events:none;z-index:32;opacity:0;transition:opacity .2s;text-align:center;}
+/* state indicator */
+#state-ind{position:fixed;top:calc(58px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);font-family:'Share Tech Mono',monospace;
+  font-size:10px;letter-spacing:3px;color:rgba(255,220,0,.9);text-shadow:0 0 8px rgba(255,200,0,.6);
+  z-index:20;pointer-events:none;opacity:0;transition:opacity .15s;
+  background:rgba(20,10,0,.5);border:1px solid rgba(255,200,0,.35);border-radius:3px;padding:3px 10px;}
+/* equipped title above player (HTML overlay) */
+#player-title{position:fixed;left:50%;transform:translateX(-50%);font-family:'Share Tech Mono',monospace;
+  font-size:10px;letter-spacing:2px;color:#ffd700;text-shadow:0 0 10px #ffd700;
+  z-index:20;pointer-events:none;opacity:0;white-space:nowrap;}
+/* slowmo vignette */
+#slowmo-vig{position:fixed;inset:0;pointer-events:none;z-index:40;opacity:0;
+  background:radial-gradient(ellipse at center,transparent 30%,rgba(255,200,0,.3) 100%);transition:opacity .06s;}
+/* swipe hint */
+#swipe-hint{position:fixed;bottom:calc(46px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);font-family:'Share Tech Mono',monospace;
+  font-size:clamp(9px,2.4vw,11px);letter-spacing:2px;color:rgba(0,243,255,.7);text-align:center;
+  z-index:20;pointer-events:none;line-height:1.7;transition:opacity .5s;
+  background:rgba(0,10,20,.55);border:1px solid rgba(0,243,255,.3);border-radius:4px;
+  padding:6px 14px;box-shadow:0 0 12px rgba(0,243,255,.15);}
+/* coins HUD */
+#coins-hud{position:fixed;top:calc(10px + env(safe-area-inset-top));right:calc(14px + env(safe-area-inset-right));font-family:'Share Tech Mono',monospace;font-size:10px;
+  letter-spacing:2px;color:#ffd700;text-shadow:0 0 8px #ffd700;z-index:20;pointer-events:none;display:none;
+  background:rgba(255,215,0,.07);border:1px solid rgba(255,215,0,.3);border-radius:3px;padding:4px 9px;
+  clip-path:polygon(5px 0,100% 0,100% calc(100% - 5px),calc(100% - 5px) 100%,0 100%,0 5px);}
+
+/* ══ OVERLAYS ══ */
+.ov{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;
+  background:
+    radial-gradient(ellipse at 50% 0%,rgba(0,80,110,.22) 0%,transparent 55%),
+    repeating-linear-gradient(90deg,rgba(0,243,255,.045) 0 1px,transparent 1px 68px),
+    repeating-linear-gradient(0deg,rgba(0,243,255,.045) 0 1px,transparent 1px 68px),
+    rgba(2,2,14,.96);
+  backdrop-filter:blur(8px);
+  opacity:1;transition:opacity .28s ease;}
+.ov.hid{opacity:0;pointer-events:none;display:flex;}
+/* 回路基板っぽいノード(交点の小さな発光点)を四隅に散らす */
+.ov::before{content:'';position:absolute;inset:0;pointer-events:none;background-image:
+    radial-gradient(circle,rgba(0,243,255,.5) 1.5px,transparent 1.6px);
+  background-size:68px 68px;background-position:0 0;opacity:.35;}
+
+/* ── TITLE MENU ── */
+#title-menu{
+  padding:calc(20px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-right)) calc(20px + env(safe-area-inset-bottom)) calc(14px + env(safe-area-inset-left));
+  overflow-y:auto;-webkit-overflow-scrolling:touch;max-height:calc(var(--vh-real, 1px) * 100);}
+.title-logo{font-family:'Orbitron',monospace;font-size:clamp(24px,7vw,44px);font-weight:900;
+  letter-spacing:5px;color:#00f3ff;text-shadow:0 0 20px #00f3ff,0 0 60px rgba(0,243,255,.3);text-align:center;
+  margin-bottom:2px;animation:logoBoot .7s steps(6,end) 1, logoPulse 2.4s ease-in-out .7s infinite;}
+@keyframes logoBoot{
+  0%{opacity:0;transform:translateX(-6px) skewX(4deg);text-shadow:2px 0 #ff00cc,-2px 0 #00f3ff;}
+  15%{opacity:1;transform:translateX(4px) skewX(-3deg);}
+  30%{transform:translateX(-3px) skewX(2deg);}
+  45%{transform:translateX(2px) skewX(0);text-shadow:0 0 20px #00f3ff;}
+  100%{opacity:1;transform:translateX(0);text-shadow:0 0 20px #00f3ff,0 0 60px rgba(0,243,255,.3);}
+}
+@keyframes logoPulse{0%,100%{text-shadow:0 0 20px #00f3ff,0 0 60px rgba(0,243,255,.3);}
+  50%{text-shadow:0 0 30px #00f3ff,0 0 80px rgba(0,243,255,.5);}}
+.title-sub{font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:4px;
+  color:rgba(0,243,255,.4);text-align:center;margin-bottom:16px;}
+.menu-btn{display:block;width:100%;max-width:280px;margin:0 auto 10px;padding:14px 0;
+  font-family:'Orbitron',monospace;font-size:12px;font-weight:900;letter-spacing:3px;
+  text-align:center;border-radius:3px;cursor:pointer;min-height:48px;transition:box-shadow .15s;}
+#btn-start{background:#00f3ff;color:#000;border:none;box-shadow:0 0 24px rgba(0,243,255,.6);
+  clip-path:polygon(6px 0,100% 0,calc(100% - 6px) 100%,0 100%);animation:startPulse 2s ease-in-out infinite;}
+@keyframes startPulse{0%,100%{box-shadow:0 0 24px rgba(0,243,255,.6);}50%{box-shadow:0 0 40px rgba(0,243,255,.9);}}
+#btn-start:active{box-shadow:0 0 44px rgba(0,243,255,.95);animation:none;}
+#btn-gacha{background:rgba(255,215,0,.10);color:#ffd700;border:2px solid rgba(255,215,0,.65);
+  box-shadow:0 0 12px rgba(255,215,0,.3);}
+#btn-gacha:active{background:rgba(255,215,0,.25);box-shadow:0 0 20px rgba(255,215,0,.5);}
+#btn-rank{background:rgba(0,243,255,.08);color:#00f3ff;border:2px solid rgba(0,243,255,.5);}
+#btn-rank:active{background:rgba(0,243,255,.2);box-shadow:0 0 16px rgba(0,243,255,.4);}
+.title-coins{font-family:'Share Tech Mono',monospace;font-size:12px;letter-spacing:2px;color:#ffd700;
+  text-align:center;margin:0 auto 14px;text-shadow:0 0 8px #ffd700;display:inline-block;
+  background:rgba(255,215,0,.08);border:1px solid rgba(255,215,0,.35);border-radius:4px;
+  padding:5px 16px;box-shadow:0 0 12px rgba(255,215,0,.15);}
+/* live ranking board */
+#rank-board{width:100%;max-width:280px;margin:16px auto 0;border:1px solid rgba(0,243,255,.35);
+  border-radius:5px;background:linear-gradient(180deg,rgba(0,243,255,.05),rgba(0,0,20,.7));
+  padding:9px 11px;font-family:'Share Tech Mono',monospace;
+  font-size:9px;color:rgba(0,243,255,.7);letter-spacing:1px;box-shadow:0 0 16px rgba(0,243,255,.08);}
+.rb-title{color:rgba(0,243,255,.55);letter-spacing:3px;margin-bottom:6px;font-size:8px;
+  border-bottom:1px solid rgba(0,243,255,.2);padding-bottom:4px;}
+/* ランキング切り替えタブ */
+#rank-tabs{display:flex;gap:4px;margin-bottom:6px;}
+.rank-tab{flex:1;font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:1px;
+  padding:5px 0;background:rgba(0,243,255,.04);border:1px solid rgba(0,243,255,.2);
+  color:rgba(0,243,255,.55);border-radius:3px;cursor:pointer;transition:all .15s;}
+.rank-tab.active{background:rgba(0,243,255,.18);border-color:#00f3ff;color:#00f3ff;}
+.rb-row{display:flex;justify-content:space-between;margin-bottom:2px;transition:color .3s;}
+.rb-row.top1{background:linear-gradient(90deg,rgba(255,215,0,.12),transparent);border-radius:3px;padding:2px 4px;margin:0 -4px 3px;}
+.rb-row.top2{background:linear-gradient(90deg,rgba(192,192,192,.10),transparent);border-radius:3px;padding:2px 4px;margin:0 -4px 3px;}
+.rb-row.top3{background:linear-gradient(90deg,rgba(205,127,50,.10),transparent);border-radius:3px;padding:2px 4px;margin:0 -4px 3px;}
+
+/* ── CHARACTER SELECT ── */
+#sel-screen{padding:calc(16px + env(safe-area-inset-top)) calc(12px + env(safe-area-inset-right)) calc(16px + env(safe-area-inset-bottom)) calc(12px + env(safe-area-inset-left));overflow-y:auto;-webkit-overflow-scrolling:touch;max-height:calc(var(--vh-real, 1px) * 100);}
+.sel-t{font-family:'Orbitron',monospace;font-size:clamp(14px,4vw,22px);font-weight:900;letter-spacing:5px;
+  color:#00f3ff;text-shadow:0 0 16px #00f3ff;text-align:center;margin-bottom:2px;}
+.sel-s{font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:4px;color:rgba(0,243,255,.4);
+  text-align:center;margin-bottom:10px;}
+#pv-c{display:block;width:130px;height:130px;margin:0 auto 10px;border:1px solid rgba(0,243,255,.2);border-radius:6px;}
+.char-row{display:flex;gap:7px;justify-content:center;margin-bottom:10px;flex-wrap:wrap;}
+.cc{width:clamp(82px,25vw,102px);padding:9px 7px 7px;border-radius:6px;background:rgba(255,255,255,.05);
+  border:2px solid rgba(255,255,255,.18);cursor:pointer;text-align:center;transition:all .18s;}
+.cc.sel2{border-color:var(--cc);box-shadow:0 0 14px var(--cc);background:rgba(255,255,255,.06);}
+.cc.sel2 .cc-ico{border-color:var(--cc);box-shadow:0 0 12px var(--cc);background:radial-gradient(circle,color-mix(in srgb,var(--cc) 25%,transparent),transparent 70%);}
+.cc-ico{font-size:18px;margin-bottom:4px;width:34px;height:34px;border-radius:50%;
+  background:radial-gradient(circle,rgba(255,255,255,.12),transparent 70%);
+  display:flex;align-items:center;justify-content:center;margin-left:auto;margin-right:auto;
+  border:1px solid rgba(255,255,255,.15);}
+.cc-nm{font-family:'Share Tech Mono',monospace;font-size:clamp(7px,2vw,9px);color:#dde;margin-bottom:2px;line-height:1.3;}
+.cc-sk{font-family:'Share Tech Mono',monospace;font-size:7px;letter-spacing:1px;color:var(--cc);}
+.cc-tag{font-family:'Share Tech Mono',monospace;font-size:7px;color:#000;background:var(--cc);
+  border-radius:2px;padding:1px 4px;margin-top:3px;display:inline-block;font-weight:700;opacity:.9;}
+.cc-ds{font-family:'Share Tech Mono',monospace;font-size:7px;color:rgba(180,200,220,.4);margin-top:3px;line-height:1.4;text-align:left;}
+#char-desc{font-family:'Share Tech Mono',monospace;font-size:11px;color:rgba(200,220,255,.6);text-align:center;
+  min-height:26px;margin-bottom:10px;line-height:1.6;max-width:290px;}
+#go-btn{padding:13px 42px;font-family:'Orbitron',monospace;font-size:12px;font-weight:900;letter-spacing:3px;
+  color:#000;background:#00f3ff;border:none;border-radius:3px;cursor:pointer;
+  box-shadow:0 0 24px rgba(0,243,255,.65);clip-path:polygon(6px 0,100% 0,calc(100% - 6px) 100%,0 100%);min-height:48px;}
+#go-btn:active{box-shadow:0 0 46px rgba(0,243,255,.95);}
+
+/* ── GACHA ── */
+#gacha-screen{padding:calc(18px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-right)) calc(18px + env(safe-area-inset-bottom)) calc(14px + env(safe-area-inset-left));overflow-y:auto;-webkit-overflow-scrolling:touch;max-height:calc(var(--vh-real, 1px) * 100);}
+.gacha-t{font-family:'Orbitron',monospace;font-size:clamp(14px,4vw,20px);font-weight:900;letter-spacing:4px;
+  color:#ffd700;text-shadow:0 0 16px #ffd700;text-align:center;margin-bottom:4px;}
+.gacha-sub{font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:3px;color:rgba(255,215,0,.4);
+  text-align:center;margin-bottom:10px;}
+#gacha-preview-c{display:block;width:140px;height:140px;margin:0 auto 12px;border:1px solid rgba(255,215,0,.25);border-radius:6px;}
+#gacha-result{font-family:'Orbitron',monospace;font-size:clamp(13px,3.5vw,18px);font-weight:900;
+  color:#ffd700;text-align:center;margin-bottom:8px;min-height:22px;text-shadow:0 0 12px #ffd700;}
+.gacha-btn-row{display:flex;gap:9px;justify-content:center;margin-bottom:14px;}
+.gachbtn{padding:12px 22px;font-family:'Orbitron',monospace;font-size:11px;font-weight:700;letter-spacing:2px;
+  border-radius:4px;cursor:pointer;min-height:46px;}
+#btn-pull1{background:#ffd700;color:#000;border:none;box-shadow:0 0 16px rgba(255,215,0,.5);clip-path:polygon(5px 0,100% 0,calc(100% - 5px) 100%,0 100%);}
+#btn-pull10{background:rgba(255,215,0,.10);color:#ffd700;border:2px solid rgba(255,215,0,.65);box-shadow:0 0 10px rgba(255,215,0,.3);}
+#btn-pull10:active{background:rgba(255,215,0,.25);box-shadow:0 0 18px rgba(255,215,0,.5);}
+#comp-rate{font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:2px;color:rgba(0,243,255,.7);
+  text-align:center;margin:0 auto 8px;padding:4px 12px;border:1px solid rgba(0,243,255,.25);border-radius:4px;
+  background:rgba(0,243,255,.05);display:inline-block;}
+#comp-rate #comp-val{color:#ffd700;font-weight:700;font-size:12px;}
+/* データ初期化ボタン(スタッフ用・目立たせない) */
+#btn-wipe{margin-top:14px;font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:1px;
+  background:transparent;color:rgba(255,120,120,.45);border:1px solid rgba(255,120,120,.2);
+  border-radius:4px;padding:5px 12px;cursor:pointer;transition:all .15s;}
+#btn-wipe:hover,#btn-wipe:active{color:rgba(255,120,120,.9);border-color:rgba(255,120,120,.5);background:rgba(255,60,60,.08);}
+.col-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;max-width:320px;margin:0 auto 12px;}
+.col-item{aspect-ratio:1;border-radius:4px;background:rgba(255,255,255,.06);border:2px solid rgba(255,255,255,.18);
+  cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:18px;
+  transition:all .18s;position:relative;gap:1px;}
+.col-item .rarity-star{font-size:6px;letter-spacing:1px;color:#ffd700;text-shadow:0 0 4px #ffd700;}
+.col-item.owned{border-color:var(--ci);box-shadow:0 0 8px var(--ci);}
+.col-item.owned.rarity-2{border-width:2.5px;box-shadow:0 0 12px var(--ci);}
+.col-item.owned.rarity-3{border-width:3px;box-shadow:0 0 18px var(--ci),0 0 30px var(--ci);animation:rarePulse 2s ease-in-out infinite;}
+@keyframes rarePulse{0%,100%{transform:scale(1);}50%{transform:scale(1.05);}}
+.col-item.locked{opacity:.35;filter:grayscale(1);}
+.col-item.locked .rarity-star{opacity:.5;}
+.back-btn{padding:10px 28px;font-family:'Orbitron',monospace;font-size:11px;font-weight:700;letter-spacing:2px;
+  background:rgba(0,243,255,.08);color:#00f3ff;border:2px solid rgba(0,243,255,.5);
+  border-radius:4px;cursor:pointer;min-height:44px;display:block;margin:0 auto;}
+.back-btn:active{background:rgba(0,243,255,.22);box-shadow:0 0 16px rgba(0,243,255,.4);}
+
+/* ── GAMEOVER ── */
+#gover{padding:calc(18px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-right)) calc(18px + env(safe-area-inset-bottom)) calc(14px + env(safe-area-inset-left));overflow-y:auto;-webkit-overflow-scrolling:touch;max-height:calc(var(--vh-real, 1px) * 100);}
+.go-t{font-family:'Orbitron',monospace;font-size:clamp(22px,6.5vw,40px);font-weight:900;
+  color:#ff1744;text-shadow:0 0 26px #ff1744;letter-spacing:4px;text-align:center;margin-bottom:5px;
+  animation:goShock .45s cubic-bezier(.2,1.8,.3,1) 1;}
+@keyframes goShock{
+  0%{opacity:0;transform:scale(2.2);text-shadow:3px 0 #00f3ff,-3px 0 #ff00cc;}
+  40%{opacity:1;transform:scale(.92);}
+  60%{transform:scale(1.06);}
+  100%{transform:scale(1);text-shadow:0 0 26px #ff1744;}
+}
+.go-sc{font-family:'Orbitron',monospace;font-size:clamp(13px,3.8vw,22px);color:#fff;text-align:center;margin-bottom:3px;}
+.go-hi{font-family:'Share Tech Mono',monospace;font-size:12px;color:#ffd700;text-align:center;margin-bottom:12px;letter-spacing:2px;}
+#death-cause{font-family:'Share Tech Mono',monospace;font-size:11px;color:#ff8080;text-align:center;
+  margin-bottom:12px;letter-spacing:1px;background:rgba(255,23,68,.08);border:1px solid rgba(255,23,68,.3);
+  border-radius:5px;padding:7px 12px;max-width:320px;margin-left:auto;margin-right:auto;}
+#death-cause.hid{display:none;}
+#score-diff{font-family:'Share Tech Mono',monospace;font-size:11px;text-align:center;letter-spacing:1px;margin-bottom:8px;font-weight:700;}
+#score-diff.hid{display:none;}
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;max-width:320px;margin:0 auto 12px;}
+.stat-card{background:rgba(0,243,255,.06);border:1px solid rgba(0,243,255,.28);border-radius:6px;padding:11px 8px 9px;
+  text-align:center;position:relative;overflow:hidden;}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;
+  background:linear-gradient(90deg,#00f3ff,#bd00ff);box-shadow:0 0 8px rgba(0,243,255,.6);}
+.stat-val{font-family:'Orbitron',monospace;font-size:clamp(13px,3.8vw,18px);font-weight:700;color:#00f3ff;display:block;}
+.stat-lbl{font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:2px;color:rgba(200,220,255,.45);margin-top:2px;display:block;}
+.reflex-card{background:rgba(189,0,255,.08);border:1px solid rgba(189,0,255,.3);border-radius:6px;padding:10px;
+  text-align:center;max-width:320px;margin:0 auto 12px;}
+.reflex-val{font-family:'Orbitron',monospace;font-size:clamp(22px,6.5vw,34px);font-weight:900;color:#bd00ff;
+  text-shadow:0 0 14px #bd00ff;display:block;}
+.reflex-lbl{font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:2px;color:rgba(200,220,255,.5);margin-top:2px;display:block;}
+.title-reward{font-family:'Share Tech Mono',monospace;font-size:10px;color:#ffd700;text-align:center;
+  margin-bottom:10px;letter-spacing:1px;min-height:16px;}
+.go-row{display:flex;gap:9px;flex-wrap:wrap;justify-content:center;}
+.gbtn{padding:11px 26px;font-family:'Orbitron',monospace;font-size:11px;font-weight:700;letter-spacing:2px;border-radius:4px;cursor:pointer;min-height:46px;}
+#btn-retry{background:#ff1744;color:#fff;border:none;box-shadow:0 0 14px rgba(255,23,68,.5);clip-path:polygon(5px 0,100% 0,calc(100% - 5px) 100%,0 100%);}
+#btn-sel{background:rgba(200,220,255,.10);color:#fff;border:2px solid rgba(200,220,255,.5);}
+#btn-sel:active{background:rgba(200,220,255,.25);box-shadow:0 0 16px rgba(200,220,255,.4);}
+#btn-go-title{background:transparent;color:rgba(200,220,255,.8);border:2px solid rgba(200,220,255,.35);}
+#btn-go-title:active{background:rgba(200,220,255,.15);}
+.title-chip{font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:1px;padding:5px 10px;
+  border-radius:3px;background:rgba(255,215,0,.05);border:1px solid rgba(255,215,0,.25);color:rgba(255,215,0,.7);
+  cursor:pointer;transition:all .15s;}
+.title-chip.active{background:rgba(255,215,0,.2);border-color:#ffd700;color:#ffd700;box-shadow:0 0 10px rgba(255,215,0,.3);}
+#btn-line-share{background:#06C755;color:#fff;border:none;box-shadow:0 0 14px rgba(6,199,85,.5);width:100%;max-width:320px;margin:0 auto 10px;display:flex;align-items:center;justify-content:center;gap:7px;}
+#btn-line-share.hid{display:none;}
+
+/* ══ CRT筐体演出(このゲームの署名要素: 常にブラウン管越しに見ている質感を統一) ══ */
+body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:50;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.08) 2px,rgba(0,0,0,.08) 4px);
+  animation:crtFlicker 6.5s ease-in-out infinite;}
+@keyframes crtFlicker{
+  0%,92%,100%{opacity:1;}
+  93%{opacity:.85;}
+  94%{opacity:1;}
+  95%{opacity:.9;}
+  96%{opacity:1;}
+}
+/* 画面周囲を落として「筐体の枠越しに覗いている」ビネットを追加 */
+#crt-vignette{position:fixed;inset:0;pointer-events:none;z-index:51;
+  background:radial-gradient(ellipse at center,transparent 58%,rgba(0,0,4,.55) 100%);
+  box-shadow:inset 0 0 140px rgba(0,0,4,.7);}
+/* 改善20: キーボード操作時のフォーカス表示(マウス/タッチ時は出ない) */
+button:focus-visible, input:focus-visible, .cc:focus-visible, .col-item:focus-visible, .title-chip:focus-visible{
+  outline:2px solid #00f3ff; outline-offset:2px; box-shadow:0 0 12px rgba(0,243,255,.6) !important;}
+/* 改善16: 視差軽減設定の人には全アニメーションを大幅に抑制 */
+@media (prefers-reduced-motion: reduce){
+  *, *::before, *::after{
+    animation-duration:.001s !important; animation-iteration-count:1 !important;
+    transition-duration:.05s !important;}
+  #crt-vignette{opacity:.5;}
+  body::after{animation:none !important;}
+}
+</style>
+</head>
+<body>
+<div id="crt-vignette"></div>
+<canvas id="gc"></canvas>
+
+<!-- HUD -->
+<div id="hud">
+  <div id="hud-inner">
+    <div class="hb"><span class="hl">スコア</span><span class="hv" id="h-score">0</span><span class="h-best" id="h-best">ベスト 0</span></div>
+    <div class="hb"><span class="hl">スキル</span><span id="skill-badge" class="r">準備完了</span>
+      <div id="skill-gauge-wrap"><div id="skill-gauge"></div></div>
+    </div>
+    <div class="hb"><span class="hl">コンボ</span><span class="hv" id="h-combo">×0</span></div>
+    <div class="hb"><span class="hl">きょり</span><span class="hv" id="h-dist">0m</span></div>
+  </div>
+</div>
+<button id="btn-pause" aria-label="pause">❚❚</button>
+<div id="spb-wrap"><div id="spb"></div></div>
+<div id="hyper-badge">⚡ ハイパードライブ ⚡</div>
+<div id="hyper-warn">⚡ チャージ ⚡</div>
+<div id="popup"></div>
+<div id="evade-hud">!!! 神回避 !!!</div>
+<div id="combo-flash"></div>
+<div id="title-unlock"></div>
+<div id="state-ind"></div>
+<div id="player-title"></div>
+<div id="slowmo-vig"></div>
+<div id="countdown"></div>
+<div id="pause-menu" class="hid">
+  <div class="pause-title">ポーズ中</div>
+  <div class="pause-help">
+    <div class="pause-help-row"><span>◀ ▶</span><span>レーン移動</span></div>
+    <div class="pause-help-row"><span>▲ ジャンプ</span><span>🟨黄バーを飛ぶ</span></div>
+    <div class="pause-help-row"><span>▼ しゃがむ</span><span>🟪紫ゲートをくぐる</span></div>
+    <div class="pause-help-row"><span>クリック</span><span>スキル発動</span></div>
+    <div class="pause-help-row"><span>🟥赤い壁</span><span>左右によけて回避</span></div>
+  </div>
+  <button class="gbtn pause-btn" id="btn-resume">再開</button>
+  <button class="gbtn pause-btn" id="btn-pause-quit">タイトルへ戻る</button>
+</div>
+<div id="swipe-hint">🟥赤=よける ・ 🟨黄バー=ジャンプ ・ 🟪紫ゲート=しゃがむ ・ ダブルタップでスキル</div>
+<div id="coins-hud">🪙 <span id="coins-val">0</span></div>
+<button id="btn-mute" aria-label="ミュート切替">🔊</button>
+
+<!-- 配線が不安定でも「押した入力が実際に届いたか」を光と音で確認できるようにするインジケーター -->
+<div id="input-indicator" style="position:fixed;bottom:calc(6px + env(safe-area-inset-bottom));left:50%;
+  transform:translateX(-50%);display:flex;gap:8px;z-index:60;pointer-events:none;">
+</div>
+
+<!-- TITLE MENU -->
+<div class="ov" id="title-menu">
+  <div class="title-logo">CYBER RUNNER</div>
+  <div class="title-sub">黒工電子科 — アーケードシステム</div>
+  <div class="title-coins">🪙 <span id="coins-title">0</span> コイン</div>
+  <button class="menu-btn" id="btn-start">▶ ゲームスタート</button>
+  <button class="menu-btn" id="btn-gacha">🎰 ガチャ＆ずかん</button>
+  <button class="menu-btn" id="btn-rank">🏆 ランキング</button>
+  <div id="rank-board">
+    <div class="rb-title">▶ ランキング — トップ5</div>
+    <div id="rank-tabs">
+      <button class="rank-tab active" id="tab-local">この筐体</button>
+      <button class="rank-tab" id="tab-global">みんな</button>
+    </div>
+    <div id="rb-rows"></div>
+  </div>
+  <button id="btn-wipe" title="全データを消去（スタッフ用）">🗑 データ初期化</button>
+  <a href="../index.html" id="back-to-hub" style="
+    display:inline-block;margin-top:10px;font-family:'Share Tech Mono',monospace;
+    font-size:10px;letter-spacing:2px;color:rgba(0,243,255,.55);text-decoration:none;
+    border:1px solid rgba(0,243,255,.25);border-radius:4px;padding:6px 16px;
+    background:rgba(0,243,255,.04);">← アーケード選択に戻る</a>
+</div>
+
+<!-- CHARACTER SELECT -->
+<div class="ov hid" id="sel-screen">
+  <div class="sel-t">キャラクター選択</div>
+  <div class="sel-s">黒工電子科</div>
+  <canvas id="pv-c" width="260" height="260"></canvas>
+  <div class="char-row" id="char-row"></div>
+  <div id="char-tag"></div>
+  <div id="char-desc"></div>
+  <!-- 改善9: スペックバー -->
+  <div id="char-specs" style="margin-bottom:10px;"></div>
+  <!-- プレイヤー名入力 -->
+  <div style="margin-bottom:12px;width:100%;max-width:280px;">
+    <label style="font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:3px;color:rgba(0,243,255,.5);display:block;margin-bottom:4px;">なまえ (ランキング用)</label>
+    <input id="name-input" type="text" maxlength="12" placeholder="名前を入力 (最大12文字)"
+      style="width:100%;padding:9px 12px;background:rgba(0,243,255,.07);border:1px solid rgba(0,243,255,.3);
+      border-radius:4px;color:#fff;font-family:'Share Tech Mono',monospace;font-size:16px;letter-spacing:2px;
+      outline:none;box-sizing:border-box;-webkit-appearance:none;">
+  </div>
+  <!-- 改善10: 称号選択(獲得済みから装備を選べる) -->
+  <div id="title-select" style="margin-bottom:12px;width:100%;max-width:280px;">
+    <label style="font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:3px;color:rgba(255,215,0,.55);display:block;margin-bottom:4px;">称号 (獲得したもの)</label>
+    <div id="title-chips" style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;"></div>
+  </div>
+  <button id="go-btn">ゲームスタート</button>
+  <button class="back-btn" id="btn-sel-back" style="margin-top:8px;">← タイトル</button>
+</div>
+
+<!-- GACHA & COLLECTION -->
+<div class="ov hid" id="gacha-screen">
+  <div class="gacha-t">ガチャ＆ずかん</div>
+  <div class="gacha-sub">電子パーツを集めろ！</div>
+  <div class="title-coins" style="margin-bottom:10px;">🪙 <span id="coins-gacha">0</span> コイン</div>
+  <canvas id="gacha-preview-c" width="280" height="280"></canvas>
+  <div id="gacha-result"></div>
+  <div class="gacha-btn-row">
+    <button class="gachbtn" id="btn-pull1">1回 (50🪙)</button>
+    <button class="gachbtn" id="btn-pull10">10回 (450🪙)</button>
+  </div>
+  <div id="comp-rate">ずかん完成度 <span id="comp-val">0</span>%</div>
+  <div class="col-grid" id="col-grid"></div>
+  <button class="back-btn" id="btn-gacha-back">← もどる</button>
+</div>
+
+<!-- GAMEOVER / STATS -->
+<div class="ov hid" id="gover">
+  <div class="go-t">GAME OVER</div>
+  <div class="go-sc" id="go-sc">スコア: 0</div>
+  <div class="go-hi" id="go-hi">ベスト: 0</div>
+  <div id="score-diff" class="hid"></div>
+  <div id="death-cause"></div>
+  <div class="stats-grid" id="stats-grid"></div>
+  <div class="reflex-card">
+    <span class="reflex-val" id="reflex-age">--歳</span>
+    <span class="reflex-lbl">推定・反射神経年齢</span>
+  </div>
+  <div class="title-reward" id="title-reward"></div>
+  <!-- 結果テキスト表示エリア(参考表示のみ、シェア機能は撤去済み) -->
+  <div id="share-text" style="
+    font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:1px;
+    color:rgba(0,243,255,.5);border:1px solid rgba(0,243,255,.15);
+    border-radius:4px;padding:8px 10px;max-width:320px;margin:0 auto 12px;
+    white-space:pre-line;line-height:1.7;text-align:left;cursor:text;
+    background:rgba(0,0,20,.4);min-height:20px;">
+  </div>
+  <div class="go-row">
+    <button class="gbtn" id="btn-retry">もう一度</button>
+    <button class="gbtn" id="btn-sel">キャラ選択</button>
+    <button class="gbtn" id="btn-go-title">タイトル</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+'use strict';
+
+// ══════════════════════════════════════════════════════════════
+//  共通ユーティリティ(改善16: reduced-motion / 改善1: 数値ローリング)
+// ══════════════════════════════════════════════════════════════
+// OSで「視差効果を減らす」設定の人には過剰な演出を控える(酔い・不快感対策)
+const REDUCE_MOTION = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// 数値をパッと切り替えず短時間でカウントアップさせる(達成感を出す)
+function rollNumber(el, from, to, dur=500, fmt=(v)=>Math.floor(v).toLocaleString()){
+  if(!el) return;
+  if(REDUCE_MOTION){ el.textContent=fmt(to); return; }
+  const start=performance.now();
+  const step=(now)=>{
+    const p=Math.min(1,(now-start)/dur);
+    const eased=1-Math.pow(1-p,3); // ease-out cubic
+    el.textContent=fmt(from+(to-from)*eased);
+    if(p<1) requestAnimationFrame(step);
+    else el.textContent=fmt(to);
+  };
+  requestAnimationFrame(step);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  Pi4アーケード運用向け変更点:
+//  LINE LIFF連携(外部スクリプト読込・ログイン・シェア機能)は撤去した。
+//  理由: 会場のネットワーク有無に起動が左右されるのを避けるため。
+//  シェアボタンはHTML側でも削除済み(以下の share-text 表示は結果確認用に残す)。
+// ══════════════════════════════════════════════════════════════
+
+// ══════════════════════════════════════════════════════════════
+//  ゲームデータ（localStorageに永続保存）
+//  ・Pi上のChromiumでローカルに保存。ネット接続は一切不要。
+//  ・localStorageが使えない環境(プライベートモード等)では自動で
+//    メモリ上のみの動作にフォールバックし、ゲームは正常に続行する。
+// ══════════════════════════════════════════════════════════════
+const SAVE_KEY='cyberrunner_save_v1';
+const RANK_KEY='cyberrunner_ranks_v1';
+
+// ══════════════════════════════════════════════════════════════
+//  全員共有ランキング(Google Apps Script経由)
+//  ・ここに GAS のウェブアプリURL を貼ると「みんなのランキング」が有効になる。
+//    (gas_ranking.gs の手順でデプロイして得たURLを貼る)
+//  ・空のままなら共有機能は自動的にオフ。ローカルランキングだけで動く。
+//  ・通信に失敗してもゲームは一切止まらない設計(ローカルは常に動作)。
+// ══════════════════════════════════════════════════════════════
+const GAS_URL=''; // 例: 'https://script.google.com/macros/s/XXXXXXXX/exec'
+const GAS_ENABLED=/^https:\/\/script\.google\.com\//.test(GAS_URL);
+let globalRanks=[];       // サーバーから取得した全員共有ランキング
+let rankView='local';     // 'local'(この筐体) or 'global'(みんな)
+
+// スコアをサーバーへ送信(失敗は握りつぶす)。成功時は最新の共有ランキングを返す
+function submitGlobalScore(){
+  if(!GAS_ENABLED) return;
+  try{
+    fetch(GAS_URL,{
+      method:'POST',
+      // no-corsだとレスポンスが読めないため通常fetch。GAS側はCORS許可済み
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({name:SD.playerName||'GUEST',score:score,title:SD.equippedTitle||'なし',comp:calcComp()}),
+    }).then(r=>r.json()).then(d=>{
+      if(d&&d.ok&&Array.isArray(d.ranking)){ globalRanks=d.ranking; if(rankView==='global') renderActiveRank(); }
+    }).catch(()=>{ /* 通信失敗は無視 */ });
+  }catch(e){ /* 無視 */ }
+}
+// サーバーから共有ランキングを取得
+function fetchGlobalRanks(){
+  if(!GAS_ENABLED) return;
+  try{
+    fetch(GAS_URL,{method:'GET'}).then(r=>r.json()).then(d=>{
+      if(d&&d.ok&&Array.isArray(d.ranking)){ globalRanks=d.ranking; if(rankView==='global') renderActiveRank(); }
+    }).catch(()=>{});
+  }catch(e){}
+}
+// 現在のタブに応じてランキングを描画
+function renderActiveRank(){
+  if(rankView==='global'&&GAS_ENABLED){
+    renderRankBoard(globalRanks.length?globalRanks:[{name:'読み込み中…',score:0,title:'なし',comp:0}]);
+  } else {
+    renderRankBoard(persistentRanks);
+  }
+}
+
+
+// localStorageが実際に読み書きできるか起動時に一度だけ判定
+const storageAvailable=(()=>{
+  try{
+    const k='__cr_test__';
+    window.localStorage.setItem(k,'1');
+    window.localStorage.removeItem(k);
+    return true;
+  }catch(e){ return false; }
+})();
+
+let SD={totalCoins:0,unlockedItems:[],unlockedTitles:[],equippedTitle:'',highScore:0,playerName:''};
+
+function saveSave(){
+  if(!storageAvailable) return;
+  try{ window.localStorage.setItem(SAVE_KEY, JSON.stringify(SD)); }
+  catch(e){ /* 容量超過などは黙って無視(ゲーム続行を優先) */ }
+}
+function loadSave(){
+  if(!storageAvailable) return;
+  try{
+    const raw=window.localStorage.getItem(SAVE_KEY);
+    if(!raw) return;
+    const d=JSON.parse(raw);
+    // 既知フィールドだけを取り込む(将来キーが増えても壊れないように)
+    if(typeof d.totalCoins==='number') SD.totalCoins=d.totalCoins;
+    if(Array.isArray(d.unlockedItems)) SD.unlockedItems=d.unlockedItems;
+    if(Array.isArray(d.unlockedTitles)) SD.unlockedTitles=d.unlockedTitles;
+    if(typeof d.equippedTitle==='string') SD.equippedTitle=d.equippedTitle;
+    if(typeof d.highScore==='number') SD.highScore=d.highScore;
+    if(typeof d.playerName==='string') SD.playerName=d.playerName;
+  }catch(e){ /* 破損データは無視して初期状態で開始 */ }
+}
+// 全セーブデータ削除(文化祭スタッフ用リセット)
+function wipeSave(){
+  SD={totalCoins:0,unlockedItems:[],unlockedTitles:[],equippedTitle:'',highScore:0,playerName:''};
+  persistentRanks=[];
+  if(storageAvailable){
+    try{ window.localStorage.removeItem(SAVE_KEY); window.localStorage.removeItem(RANK_KEY); }catch(e){}
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  GACHA PARTS CATALOG
+// ══════════════════════════════════════════════════════════════
+const PARTS=[
+  {id:'resistor',   name:'RESISTOR',    icon:'⬛', color:0xff6600, rarity:1},
+  {id:'capacitor',  name:'CAPACITOR',   icon:'🔵', color:0x00f3ff, rarity:1},
+  {id:'ic_chip',    name:'IC CHIP',     icon:'🟫', color:0x88ff44, rarity:2},
+  {id:'led',        name:'LED',         icon:'🟡', color:0xffd700, rarity:1},
+  {id:'transistor', name:'TRANSISTOR',  icon:'🟣', color:0xbd00ff, rarity:2},
+  {id:'coil',       name:'COIL',        icon:'⚪', color:0xffffff, rarity:3},
+  {id:'diode',      name:'DIODE',       icon:'🔴', color:0xff1744, rarity:1},
+  {id:'cpu',        name:'CPU',         icon:'🟩', color:0x00ff88, rarity:3},
+];
+
+// ══════════════════════════════════════════════════════════════
+//  TITLES (称号)
+// ══════════════════════════════════════════════════════════════
+const TITLE_DEFS=[
+  {id:'calculator',  label:'【演算器】',         cond:'combo15'},
+  {id:'destroyer',   label:'【高電圧デストロイヤー】', cond:'justBreak'},
+  {id:'shadow',      label:'【絶影】',            cond:'nearmiss10'},
+];
+
+function checkTitleUnlock(condId){
+  const def=TITLE_DEFS.find(t=>t.cond===condId);
+  if(!def||SD.unlockedTitles.includes(def.id)) return;
+  SD.unlockedTitles.push(def.id);
+  if(!SD.equippedTitle) SD.equippedTitle=def.label;
+  saveSave();
+  showTitleUnlockFX(def.label);
+  updatePlayerTitleDOM();
+}
+
+// ══════════════════════════════════════════════════════════════
+//  CHARACTERS
+// ══════════════════════════════════════════════════════════════
+const CHARS=[
+  {id:'sphere',   name:'サイバー・スフィア',   geo:'Sphere',   color:0x00f3ff, speed:1.0,
+   skill:'MAGNET',       cd:1200, icon:'🔵', skillMult:2.0,
+   laneLerp:20, jumpMult:1.0, tag:'初心者におすすめ',
+   // 改善9: スペックバー用パラメータ追加
+   specs:{speed:3,power:2,range:2,cd:3},
+   desc:'磁力でアイテム吸引×2点。標準的な操作性。'},
+  {id:'cube',     name:'エレクトロ・キューブ', geo:'Box',      color:0xffd700, speed:1.3,
+   skill:'BREAK',        cd:2200, icon:'🟡', skillMult:1.0,
+   laneLerp:13, jumpMult:1.18, tag:'上級者向け・高スコア型',
+   specs:{speed:5,power:5,range:1,cd:1},
+   desc:'至近距離WALL爆破→スロー+500。重量級で移動は重いがジャンプは高い。'},
+  {id:'cylinder', name:'マグネ・シリンダー',   geo:'Cylinder', color:0xbd00ff, speed:0.8,
+   skill:'SUPER_MAGNET', cd:900,  icon:'🟣', skillMult:0.5,
+   laneLerp:27, jumpMult:0.9, tag:'コンボ稼ぎ・収集向け',
+   specs:{speed:1,power:3,range:5,cd:4},
+   desc:'全3レーン吸引×0.5点。前進は遅いが左右の切り返しが俊敏。'},
+];
+
+// ══════════════════════════════════════════════════════════════
+//  CONSTANTS
+// ══════════════════════════════════════════════════════════════
+const LANE_X       =[-2.4,0,2.4];
+const PLAYER_Z     =5;
+const SPAWN_Z      =-88;
+const DESPAWN_Z    =9;
+const FLOOR_Y      =-0.6;
+const PLAYER_R     =0.44;
+const OBS_POOL_N   =14; // Pi4向け軽量化: 20→14(同時出現数を絞り描画負荷を削減)
+const ITEM_POOL_N  =14; // 同上
+const GRAVITY      =-23;
+const JUMP_VY      =9.8;
+const DUCK_Y       =FLOOR_Y+PLAYER_R*0.35; // 修正: 床の下(-0.4)を指していたため常時埋まっていた。しゃがみでも床上に収める
+const NORMAL_Y     =FLOOR_Y+PLAYER_R; // 修正: 中心=床の高さだったため球の下半分が常に埋まっていた。床に接する高さへ
+const BASE_SPD     =18;
+const SPD_INC_INT  =10;
+const SPD_INC_RATE =0.10;
+const JUST_DIST    =4.8;
+const JUST_BONUS   =500;
+const LANE_LERP    =20; // 改善: 指追従を素早く感じさせるため追従速度UP（元14）
+const PLAY_X_MIN   =-2.9; // 改善: 指の位置に自由追従させる可動範囲（旧3レーン固定を撤廃）
+const PLAY_X_MAX   =2.9;
+const OBS_WALL='wall', OBS_BAR='bar', OBS_GATE='gate';
+const HYPER_TRIGGER=10; // 10の倍数コンボでハイパー
+const NEAR_INNER   =1.0; // ニアミス判定: このZONEより外
+const NEAR_OUTER   =2.2; // かつこれより内
+const NEAR_EVADE_D =0.8; // JUST EVADEは衝突判定の0.8外側
+const SIGN_TEXTS=[
+  'KROKOU ELECTRONICS','DENSHI-KA 2F','SPEED STAR',
+  '黒沢尻工業高校','電子科2年','混雑マップ→','KUROKO DENSHI',
+  'ERR: TOO FAST','WARNING: SPEED LIMIT','電子科最高！',
+  'OVER 9000km/h','SYSTEM: OVERLOAD',
+];
+
+// ══════════════════════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════════════════════
+let selIdx=0, selChar=CHARS[0], gstate='title';
+let score=0, combo=0, dist=0, elapsed=0, lastTS=null;
+let lastMilestone=0, nearMissStreak=0, nearMissStreakTimer=0;
+let prevRunScore=null; // 直前プレイのスコア(差分表示用)
+let lastRunScore=null; // 改善3: 前回プレイのスコア(差分表示用、タブを開いている間のみ)
+let lane=1, playerX=LANE_X[1], targetX=LANE_X[1], playerY=NORMAL_Y, playerVY=0;
+let isJump=false, isDuck=false;
+let skillCD=false, skillLast=-Infinity;
+let spawnT=0, spawnInterval=1.0, gameSpeed=BASE_SPD, speedLevel=0;
+let hyperActive=false, hyperSpeedMult=1.0, effSpeed=BASE_SPD;
+let slowmoActive=false, timeScale=1;
+let camFOV=62, camRoll=0, camShakeT=0, camShakeMag=0, camAimY=0.8;
+let curvePhase=0;
+// stats
+let statJumps=0, statNearMiss=0, statJustEvade=0, statWallBroken=0;
+let statMaxCombo=0, statMaxSpeed=0, statItemsGot=0;
+// timers
+let popupTimer=null, comboTimer=null, stateTimer=null, hyperTimer=null;
+let hintTimer=null, evadeTimer=null, titleTimer=null;
+// magnet item targets (非線形イージング用)
+const magnetTargets=new Map(); // mesh → {active, mult}
+// trail meshes
+const trailPool=[];
+// hitstop
+let hitstopT=0;
+
+// ══════════════════════════════════════════════════════════════
+//  THREE.JS — RENDERER
+// ══════════════════════════════════════════════════════════════
+const canvas=document.getElementById('gc');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:false,powerPreference:'high-performance'});
+renderer.setPixelRatio(1); // Pi4のVideoCore VIは非力なため、devicePixelRatioに合わせず固定1倍で描画負荷を抑える
+renderer.shadowMap.enabled=false;
+
+const scene=new THREE.Scene();
+scene.fog=new THREE.FogExp2(0x000010,0.016);
+scene.background=new THREE.Color(0x000010);
+
+const camera=new THREE.PerspectiveCamera(62,1,0.1,170);
+camera.position.set(0,3.2,9.5);
+camera.lookAt(0,0.8,-12);
+
+// ══════════════════════════════════════════════════════════════
+//  画面サイズ対応（スマホのアドレスバー/ノッチ/向き変化に追従）
+//  ──────────────────────────────────────────────────────────
+//  縦長スマホでは、横3レーン分の幅がそのままだと画面の左右に収まらない
+//  （カメラが自機にかなり近いため）。これを解消するため、画面が縦長に
+//  なるほどカメラを「同じ角度を保ったまま」少し後ろに引いて、3レーン
+//  ＋自由移動の可動範囲がきちんと画面内に収まるようにしている。
+// ══════════════════════════════════════════════════════════════
+const BASE_FOV=62;
+let restFOV=BASE_FOV;
+const CAM_TARGET=new THREE.Vector3(0,0.8,-12);
+const CAM_DIR0=new THREE.Vector3(0,3.2,9.5).sub(CAM_TARGET); // 初期カメラ位置→注視点 への基準オフセット
+let CAM_BASE_Y=3.2, CAM_BASE_Z=9.5; // updateCamera()内のシェイク/上下動の基準値として参照される
+function setRealVH(){
+  // visualViewport があればそれを優先（ソフトキーボードやURLバーの変化に最も正確に追従）
+  const h=(window.visualViewport&&window.visualViewport.height)||window.innerHeight;
+  document.documentElement.style.setProperty('--vh-real',(h*0.01)+'px');
+}
+function resize(){
+  setRealVH();
+  const w=window.innerWidth, h=(window.visualViewport&&window.visualViewport.height)||window.innerHeight;
+  renderer.setSize(w,h);
+  camera.aspect=w/h;
+  const ar=w/h;
+  // ar=0.8(あまり縦長でない)で変化なし、ar=0.45(かなり縦長)に向けて滑らかに強める
+  const t=Math.max(0,Math.min(1,(0.8-ar)/(0.8-0.45)));
+  const camScale=1.25+t*0.28;   // 修正: 基準距離を1.25倍(全体を約80%スケールに)に後退。まだ自機が画面から見切れる問題への追加対策も兼ねる
+  restFOV=BASE_FOV+t*3;      // 視野角もわずかに（最大+3°）広げて微調整
+  camera.fov=restFOV;
+  camFOV=restFOV;
+  const newPos=CAM_TARGET.clone().add(CAM_DIR0.clone().multiplyScalar(camScale));
+  CAM_BASE_Y=newPos.y; CAM_BASE_Z=newPos.z;
+  camera.position.z=CAM_BASE_Z;
+  camera.position.y=CAM_BASE_Y;
+  camera.lookAt(CAM_TARGET);
+  camera.updateProjectionMatrix();
+}
+resize();
+window.addEventListener('resize',resize);
+window.addEventListener('orientationchange',()=>{ setTimeout(resize,80); setTimeout(resize,420); });
+if(window.visualViewport) window.visualViewport.addEventListener('resize',resize);
+
+// LIGHTS
+scene.add(new THREE.AmbientLight(0x112244,1.6));
+const dirL=new THREE.DirectionalLight(0x88bbff,1.2);
+dirL.position.set(0,8,4); scene.add(dirL);
+const ptL1=new THREE.PointLight(0x00f3ff,2.2,55); ptL1.position.set(0,3,-22); scene.add(ptL1);
+const ptL2=new THREE.PointLight(0xbd00ff,1.6,45); ptL2.position.set(0,5,0); scene.add(ptL2);
+
+// ══════════════════════════════════════════════════════════════
+//  STAGE — GRID & FLOOR
+// ══════════════════════════════════════════════════════════════
+const GRID_SIZE=120, GRID_DIV=24, GRID_CNT=3;
+const grids=[];
+for(let i=0;i<GRID_CNT;i++){
+  const g=new THREE.GridHelper(GRID_SIZE,GRID_DIV,0x00f3ff,0x001133);
+  g.material.opacity=0.35; g.material.transparent=true;
+  g.position.set(0,FLOOR_Y-0.01,-GRID_SIZE*i+PLAYER_Z-10);
+  scene.add(g); grids.push(g);
+}
+// 改善19: 左右の遠景に垂直グリッド(壁面)を置き、トンネル状の奥行きを演出
+const sideGrids=[];
+for(let side of [-1,1]){
+  for(let i=0;i<GRID_CNT;i++){
+    const g=new THREE.GridHelper(GRID_SIZE,16,0x00aacc,0x001122);
+    g.material.opacity=0.13; g.material.transparent=true;
+    g.rotation.z=Math.PI/2; // 縦向きの壁にする
+    g.position.set(side*6.2,3.2,-GRID_SIZE*i+PLAYER_Z-10);
+    scene.add(g); sideGrids.push(g);
+  }
+}
+
+const floorGeo=new THREE.PlaneGeometry(7,GRID_SIZE*1.7);
+const floorMat=new THREE.MeshPhongMaterial({color:0x050515,emissive:0x000818,specular:0x001133,shininess:50});
+const fl1=new THREE.Mesh(floorGeo,floorMat);
+const fl2=new THREE.Mesh(floorGeo,floorMat);
+fl1.rotation.x=-Math.PI/2; fl1.position.set(0,FLOOR_Y-0.02,-40);
+fl2.rotation.x=-Math.PI/2; fl2.position.set(0,FLOOR_Y-0.02,-40-GRID_SIZE*1.7);
+scene.add(fl1); scene.add(fl2);
+
+function makeSideLine(x,color,y,op){
+  const g=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x,y,PLAYER_Z+3),new THREE.Vector3(x,y,SPAWN_Z-5)]);
+  scene.add(new THREE.Line(g,new THREE.LineBasicMaterial({color,transparent:true,opacity:op})));
+}
+makeSideLine(-3.5,0x00f3ff,-0.5,0.32); makeSideLine(3.5,0x00f3ff,-0.5,0.32);
+makeSideLine(-3.5,0xbd00ff,3.0,0.18); makeSideLine(3.5,0xbd00ff,3.0,0.18);
+
+// 改善1: レーン区切り線を視認性の高い発光ネオン板に置き換え
+// 薄い板ポリゴン(BoxGeometry)でネオン管を模倣し、床面の直上に設置
+const LANE_LINE_DEPTH = Math.abs(SPAWN_Z) + PLAYER_Z + 8;
+const laneDivMat = new THREE.MeshBasicMaterial({color:0x00f3ff, transparent:true, opacity:0.55});
+const laneDivGeo = new THREE.BoxGeometry(0.04, 0.04, LANE_LINE_DEPTH);
+// 左レーン境界 (X=-1.2)
+const laneDivL = new THREE.Mesh(laneDivGeo, laneDivMat.clone());
+laneDivL.position.set(-1.2, FLOOR_Y+0.02, PLAYER_Z - LANE_LINE_DEPTH/2 + 3);
+scene.add(laneDivL);
+// 右レーン境界 (X=+1.2)
+const laneDivR = new THREE.Mesh(laneDivGeo, laneDivMat.clone());
+laneDivR.position.set( 1.2, FLOOR_Y+0.02, PLAYER_Z - LANE_LINE_DEPTH/2 + 3);
+scene.add(laneDivR);
+// 床面グロー（レーン境界の床反射）
+const laneGlowMat = new THREE.MeshBasicMaterial({color:0x003355, transparent:true, opacity:0.35, side:THREE.DoubleSide});
+const laneGlowGeo = new THREE.PlaneGeometry(0.18, LANE_LINE_DEPTH);
+const laneGlowL = new THREE.Mesh(laneGlowGeo, laneGlowMat.clone());
+const laneGlowR = new THREE.Mesh(laneGlowGeo, laneGlowMat.clone());
+laneGlowL.rotation.x=-Math.PI/2; laneGlowL.position.set(-1.2, FLOOR_Y+0.001, PLAYER_Z - LANE_LINE_DEPTH/2 + 3);
+laneGlowR.rotation.x=-Math.PI/2; laneGlowR.position.set( 1.2, FLOOR_Y+0.001, PLAYER_Z - LANE_LINE_DEPTH/2 + 3);
+scene.add(laneGlowL); scene.add(laneGlowR);
+// ハイパードライブ時にレーンラインもマゼンタに変化する配列に登録
+const laneDivMeshes=[laneDivL,laneDivR];
+
+// warning strip
+const warnMat=new THREE.MeshBasicMaterial({color:0x00f3ff,transparent:true,opacity:0,side:THREE.DoubleSide});
+const warnMesh=new THREE.Mesh(new THREE.PlaneGeometry(7,2),warnMat);
+warnMesh.rotation.x=-Math.PI/2; warnMesh.position.set(0,FLOOR_Y+0.005,PLAYER_Z-1.5);
+scene.add(warnMesh);
+
+let _lastWarnBeepT=0;
+function updateWarning(){
+  let minD=999, minType=OBS_WALL;
+  obsPool.forEach(g=>{
+    if(!g.userData.active) return;
+    const dz=g.position.z-PLAYER_Z;
+    if(dz<0&&dz>-20&&Math.abs(g.position.x-playerX)<2.5){
+      if(-dz<minD){ minD=-dz; minType=g.userData.type; }
+    }
+  });
+  // 改善6: 障害物の種類別接近ビープ（7秒以内に1回、距離8以内）
+  if(minD<8&&audioReady&&gstate==='playing'){
+    const now=performance.now();
+    if(now-_lastWarnBeepT>700){
+      _lastWarnBeepT=now;
+      const ctx=audioCtx,g2=ctx.createGain(),o=ctx.createOscillator();
+      g2.connect(ctx.destination); o.connect(g2);
+      const t=ctx.currentTime;
+      const freq=minType===OBS_WALL?220:minType===OBS_BAR?330:440;
+      o.type='square'; o.frequency.setValueAtTime(freq,t);
+      g2.gain.setValueAtTime(0.04,t); g2.gain.exponentialRampToValueAtTime(0.001,t+0.08);
+      o.start(); o.stop(t+0.08);
+    }
+  }
+  if(minD<20){
+    const t=1-minD/20;
+    warnMat.color.setHex(t<0.5?0x00f3ff:(t>0.8?0xff1744:0xffd700));
+    warnMat.opacity=t<0.5?t*0.35:(t-0.5)*0.7;
+    grids.forEach(g=>{ if(!hyperActive) g.material.opacity=0.35+t*0.4; });
+  } else {
+    warnMat.opacity*=0.88;
+    if(!hyperActive) grids.forEach(g=>{ g.material.opacity=0.35; });
+  }
+}
+
+function scrollWorld(delta){
+  const spd=effSpeed*delta;
+  grids.forEach(g=>{ g.position.z+=spd; if(g.position.z>PLAYER_Z+10) g.position.z-=GRID_SIZE*GRID_CNT; });
+  sideGrids.forEach(g=>{ g.position.z+=spd; if(g.position.z>PLAYER_Z+10) g.position.z-=GRID_SIZE*GRID_CNT; });
+  fl1.position.z+=spd; fl2.position.z+=spd;
+  if(fl1.position.z>PLAYER_Z+55) fl1.position.z-=GRID_SIZE*3.4;
+  if(fl2.position.z>PLAYER_Z+55) fl2.position.z-=GRID_SIZE*3.4;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  STAR FIELD
+// ══════════════════════════════════════════════════════════════
+const STAR_N=140; // Pi4向け軽量化: 360→140
+const starBuf=new Float32Array(STAR_N*3);
+for(let i=0;i<STAR_N;i++){
+  starBuf[i*3]=(Math.random()-0.5)*28; starBuf[i*3+1]=Math.random()*9-1; starBuf[i*3+2]=Math.random()*-135;
+}
+const starGeo=new THREE.BufferGeometry();
+starGeo.setAttribute('position',new THREE.BufferAttribute(starBuf,3));
+const starMat=new THREE.PointsMaterial({color:0x99ddff,size:0.08,transparent:true,opacity:0.65,sizeAttenuation:true});
+scene.add(new THREE.Points(starGeo,starMat));
+
+function updateStars(delta){
+  const pos=starGeo.attributes.position, spd=effSpeed*delta*1.5;
+  for(let i=0;i<STAR_N;i++){
+    pos.array[i*3+2]+=spd;
+    if(pos.array[i*3+2]>PLAYER_Z+5){
+      pos.array[i*3]=(Math.random()-0.5)*28; pos.array[i*3+1]=Math.random()*9-1;
+      pos.array[i*3+2]=SPAWN_Z-Math.random()*20;
+    }
+  }
+  pos.needsUpdate=true;
+  starMat.opacity=0.6+Math.min(0.35,(gameSpeed-BASE_SPD)/55);
+  starMat.size=0.07+Math.min(0.15,(gameSpeed-BASE_SPD)/70);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  SPEED LINES
+// ══════════════════════════════════════════════════════════════
+const SL_N=16; // Pi4向け軽量化: 34→16
+const slBuf=new Float32Array(SL_N*6);
+const slGeo=new THREE.BufferGeometry(); slGeo.setAttribute('position',new THREE.BufferAttribute(slBuf,3));
+const slMat=new THREE.LineBasicMaterial({color:0x00f3ff,transparent:true,opacity:0});
+scene.add(new THREE.LineSegments(slGeo,slMat));
+const slData=[];
+for(let i=0;i<SL_N;i++) slData.push({x:(Math.random()-0.5)*9,y:Math.random()*5-0.5,z:Math.random()*-95,len:4+Math.random()*8});
+
+function updateSpeedLines(delta){
+  const pos=slGeo.attributes.position, spd=effSpeed*delta*1.2;
+  slMat.opacity=gstate==='playing'?Math.min(0.55,(gameSpeed-BASE_SPD*0.9)/28):0;
+  slData.forEach((sl,i)=>{
+    sl.z+=spd;
+    if(sl.z>PLAYER_Z+3){ sl.x=(Math.random()-0.5)*9; sl.y=Math.random()*5-0.5; sl.z=SPAWN_Z-Math.random()*30; sl.len=4+Math.random()*13*(gameSpeed/BASE_SPD); }
+    pos.array[i*6]=sl.x; pos.array[i*6+1]=sl.y; pos.array[i*6+2]=sl.z;
+    pos.array[i*6+3]=sl.x; pos.array[i*6+4]=sl.y; pos.array[i*6+5]=sl.z-sl.len;
+  });
+  pos.needsUpdate=true;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  SIGNS（黒工サイネージ）
+// ══════════════════════════════════════════════════════════════
+const SIGN_POOL_N=3; // Pi4向け軽量化: 6→3(makeSignTexはCanvasテクスチャ生成コストが高いため個数を絞る)
+const signPool=[];
+const sc2d=document.createElement('canvas'); sc2d.width=512; sc2d.height=128;
+const sc2dCtx=sc2d.getContext('2d');
+
+function makeSignTex(txt){
+  const ctx=sc2dCtx;
+  ctx.clearRect(0,0,512,128);
+  ctx.fillStyle='rgba(0,8,24,0.88)'; ctx.fillRect(0,0,512,128);
+  ctx.strokeStyle='#00f3ff'; ctx.lineWidth=3; ctx.strokeRect(2,2,508,124);
+  ctx.fillStyle='#00f3ff'; ctx.font='bold 50px monospace';
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.shadowColor='#00f3ff'; ctx.shadowBlur=20;
+  ctx.fillText(txt,256,64);
+  return new THREE.CanvasTexture(sc2d);
+}
+
+const signGeo=new THREE.PlaneGeometry(4.5,1.1);
+for(let i=0;i<SIGN_POOL_N;i++){
+  const mat=new THREE.MeshBasicMaterial({map:makeSignTex(SIGN_TEXTS[i%SIGN_TEXTS.length]),transparent:true,opacity:0,side:THREE.DoubleSide});
+  const m=new THREE.Mesh(signGeo,mat); m.visible=false; m.userData={active:false}; scene.add(m); signPool.push(m);
+}
+let signTimer=0;
+function updateSigns(delta){
+  signTimer+=delta;
+  if(signTimer>4.2+Math.random()*3){
+    signTimer=0;
+    const s=signPool.find(m=>!m.userData.active);
+    if(s){
+      const idx=Math.floor(Math.random()*SIGN_TEXTS.length);
+      s.material.map.dispose(); s.material.map=makeSignTex(SIGN_TEXTS[idx]); s.material.map.needsUpdate=true;
+      s.material.opacity=0;
+      const side=Math.random()<0.5?-1:1;
+      s.position.set(side*(5+Math.random()*3),1.8+Math.random()*2,SPAWN_Z-Math.random()*18);
+      s.rotation.y=side*(-0.22+Math.random()*0.14);
+      s.userData.active=true; s.visible=true;
+    }
+  }
+  signPool.forEach(m=>{
+    if(!m.userData.active) return;
+    m.position.z+=effSpeed*delta;
+    const dz=m.position.z-PLAYER_Z;
+    m.material.opacity=dz<-5?Math.min(0.9,(m.position.z-SPAWN_Z)/28*0.9):Math.max(0,m.material.opacity-delta*3);
+    if(m.position.z>PLAYER_Z+10){ m.userData.active=false; m.visible=false; }
+  });
+}
+
+// ══════════════════════════════════════════════════════════════
+//  PLAYER
+// ══════════════════════════════════════════════════════════════
+let playerGroup=null, playerMesh=null, playerGlow=null, playerReflect=null;
+
+function buildPlayer(prof){
+  if(playerGroup) scene.remove(playerGroup);
+  playerGroup=new THREE.Group();
+  let geo;
+  switch(prof.geo){
+    case 'Sphere':   geo=new THREE.SphereGeometry(PLAYER_R,22,22); break;
+    case 'Box':      geo=new THREE.BoxGeometry(0.82,0.82,0.82); break;
+    case 'Cylinder': geo=new THREE.CylinderGeometry(0.42,0.42,0.88,18); break;
+  }
+  const mat=new THREE.MeshPhongMaterial({color:prof.color,emissive:prof.color,emissiveIntensity:0.55,specular:0xffffff,shininess:90});
+  playerMesh=new THREE.Mesh(geo,mat);
+  playerGroup.add(playerMesh);
+  const gM=new THREE.MeshBasicMaterial({color:prof.color,transparent:true,opacity:0.1});
+  playerGlow=new THREE.Mesh(new THREE.SphereGeometry(PLAYER_R*1.9,10,10),gM); playerGroup.add(playerGlow);
+  const rMat=new THREE.MeshBasicMaterial({color:prof.color,transparent:true,opacity:0.18,side:THREE.DoubleSide});
+  playerReflect=new THREE.Mesh(new THREE.PlaneGeometry(1.2,1.2),rMat);
+  playerReflect.rotation.x=-Math.PI/2; playerReflect.position.y=FLOOR_Y-NORMAL_Y+0.01;
+  playerGroup.add(playerReflect);
+  playerGroup.position.set(playerX,playerY,PLAYER_Z);
+  scene.add(playerGroup);
+  // 改善7: キャラ速度の体感差を視野角に反映(速い機体ほど視野が広く=速く感じる)
+  charFovBias=(prof.speed-1.0)*10; // cube(1.3)→+3°, cylinder(0.8)→-2°
+}
+let charFovBias=0;
+
+function updatePlayer(delta){
+  if(isJump){ playerVY+=GRAVITY*delta; playerY+=playerVY*delta; if(playerY<=NORMAL_Y){playerY=NORMAL_Y;playerVY=0;isJump=false;showState('');} }
+  if(isDuck&&!isJump) playerY=DUCK_Y; else if(!isJump) playerY=NORMAL_Y;
+  const dxL=targetX-playerX;
+  const prevX=playerX;
+  // 改善1: 機体ごとの追従速度(重量感の差別化)。未定義なら従来のLANE_LERP
+  const lerpRate=(selChar&&selChar.laneLerp)||LANE_LERP;
+  playerX+=dxL*Math.min(1,lerpRate*delta);
+  // 改善: 高速で指を動かした時に残像を自動スポーン（移動が滑らかでも軌跡が見える）
+  if(Math.abs(playerX-prevX)>0.045) spawnTrail(prevX,playerY);
+  playerGroup.position.set(playerX,playerY,PLAYER_Z);
+  playerGroup.rotation.z=-dxL*0.22;
+  playerGlow.rotation.y+=delta*2.2;
+  const ty=isDuck?0.55:1.0, cy=playerGroup.scale.y;
+  playerGroup.scale.y+=(ty-cy)*Math.min(1,18*delta);
+  if(playerReflect) playerReflect.material.opacity=0.18*Math.max(0,1-(playerY-FLOOR_Y)/2.5);
+  // aura by combo
+  const aura=Math.min(0.4,combo*0.018);
+  playerGlow.material.opacity=hyperActive?0.55:0.08+aura;
+  playerGlow.scale.setScalar(hyperActive?2.4:1+aura*0.7);
+  // player title DOM position
+  updatePlayerTitleDOM();
+}
+// ══════════════════════════════════════════════════════════════
+//  TRAIL POOL（レーン移動残像）
+// ══════════════════════════════════════════════════════════════
+const TRAIL_N=2; // Pi4向け軽量化: 4→2
+for(let i=0;i<TRAIL_N;i++){
+  const tg=new THREE.BoxGeometry(0.85,0.85,0.85);
+  const tm=new THREE.MeshBasicMaterial({color:0x00f3ff,transparent:true,opacity:0,wireframe:true});
+  const tr=new THREE.Mesh(tg,tm); tr.visible=false; tr.userData={life:0}; scene.add(tr); trailPool.push(tr);
+}
+
+function spawnTrail(x,y){
+  const t=trailPool.find(m=>!m.visible);
+  if(!t) return;
+  t.position.set(x,y,PLAYER_Z);
+  t.material.color.setHex(selChar.color);
+  t.material.opacity=0.45; t.userData.life=0.22; t.visible=true;
+}
+
+function updateTrails(delta){
+  trailPool.forEach(t=>{
+    if(!t.visible) return;
+    t.userData.life-=delta;
+    t.material.opacity=Math.max(0,t.userData.life/0.22*0.45);
+    if(t.userData.life<=0){ t.visible=false; t.material.opacity=0; }
+  });
+}
+
+// ══════════════════════════════════════════════════════════════
+//  OBSTACLE PREVIEW MARKERS
+// ══════════════════════════════════════════════════════════════
+const markerGeo=new THREE.PlaneGeometry(1.8,0.3);
+const markerMatCache={
+  [OBS_WALL]:new THREE.MeshBasicMaterial({color:0xff1744,transparent:true,opacity:0,side:THREE.DoubleSide}),
+  [OBS_BAR]: new THREE.MeshBasicMaterial({color:0xffd700,transparent:true,opacity:0,side:THREE.DoubleSide}),
+  [OBS_GATE]:new THREE.MeshBasicMaterial({color:0xbd00ff,transparent:true,opacity:0,side:THREE.DoubleSide}),
+};
+const markerMap=new Map();
+function getMarker(g){
+  if(markerMap.has(g)) return markerMap.get(g);
+  const m=new THREE.Mesh(markerGeo,markerMatCache[g.userData.type].clone());
+  m.rotation.x=-Math.PI/2; scene.add(m); markerMap.set(g,m); return m;
+}
+function updateMarkers(){
+  obsPool.forEach(g=>{
+    if(!g.userData.active){ if(markerMap.has(g)) markerMap.get(g).material.opacity=0; return; }
+    const dz=g.position.z-PLAYER_Z;
+    // 改善3: 予告マーカーを早め(-44)から表示し、視認性を上げて回避判断の猶予を作る
+    if(dz>-44&&dz<0){
+      const mk=getMarker(g); mk.position.set(g.position.x,FLOOR_Y+0.008,g.position.z);
+      const op=Math.min(0.78,(1+dz/44)*0.78);
+      mk.material.opacity=dz>-14?op*(Math.sin(Date.now()*(-dz/14*20)*0.001)*0.5+0.5):op;
+    } else if(markerMap.has(g)){ markerMap.get(g).material.opacity=0; }
+  });
+}
+
+// ══════════════════════════════════════════════════════════════
+//  OBSTACLE POOL
+// ══════════════════════════════════════════════════════════════
+const OBS_GEOS={
+  [OBS_WALL]:new THREE.BoxGeometry(2.2,2.4,0.6),
+  [OBS_BAR]: new THREE.CylinderGeometry(0.22,0.22,2.5,12),
+  [OBS_GATE]:new THREE.TorusGeometry(1.15,0.22,10,24),
+};
+const OBS_MATS={
+  [OBS_WALL]:new THREE.MeshPhongMaterial({color:0xff1744,emissive:0x440008,emissiveIntensity:0.65,specular:0xff4466,shininess:60}),
+  [OBS_BAR]: new THREE.MeshPhongMaterial({color:0xffd700,emissive:0x331a00,emissiveIntensity:0.55,specular:0xffee88,shininess:70}),
+  [OBS_GATE]:new THREE.MeshPhongMaterial({color:0xbd00ff,emissive:0x220044,emissiveIntensity:0.65,specular:0xcc66ff,shininess:80}),
+};
+const obsPool=[];
+for(let i=0;i<OBS_POOL_N;i++){
+  const grp=new THREE.Group();
+  const type=[OBS_WALL,OBS_BAR,OBS_GATE][i%3];
+  const m=new THREE.Mesh(OBS_GEOS[type],OBS_MATS[type]);
+  if(type===OBS_BAR) m.rotation.z=Math.PI/2;
+  grp.add(m); grp.userData={active:false,type,lane:0,mesh:m,passed:false};
+  grp.visible=false; scene.add(grp); obsPool.push(grp);
+}
+function getObsY(t){ return t===OBS_BAR?FLOOR_Y+0.22:t===OBS_GATE?1.8:0.6; }
+function activateObs(grp,type,li){
+  const old=grp.userData.mesh; grp.remove(old);
+  const m=new THREE.Mesh(OBS_GEOS[type],OBS_MATS[type]);
+  if(type===OBS_BAR) m.rotation.z=Math.PI/2;
+  grp.add(m); grp.userData.mesh=m; grp.userData.type=type;
+  grp.userData.lane=li; grp.userData.active=true; grp.userData.passed=false;
+  grp.position.set(LANE_X[li],getObsY(type),SPAWN_Z); grp.visible=true;
+}
+function deactivateObs(grp){
+  grp.userData.active=false; grp.visible=false; grp.position.z=SPAWN_Z-300;
+  if(markerMap.has(grp)) markerMap.get(grp).material.opacity=0;
+}
+function rndObsType(){ const r=Math.random(); return r<0.45?OBS_WALL:r<0.75?OBS_BAR:OBS_GATE; }
+
+// ══════════════════════════════════════════════════════════════
+//  ITEM POOL
+// ══════════════════════════════════════════════════════════════
+const iGeo=new THREE.SphereGeometry(0.36,10,10);
+const iBaseMat=new THREE.MeshPhongMaterial({color:0x00ff88,emissive:0x003311,emissiveIntensity:0.85,specular:0xffffff,shininess:100});
+const itemPool=[];
+for(let i=0;i<ITEM_POOL_N;i++){
+  const m=new THREE.Mesh(iGeo,iBaseMat.clone());
+  m.visible=false; m.userData={active:false,lane:0,magnetPull:false,magnetMult:0};
+  scene.add(m); itemPool.push(m);
+}
+function activateItem(m,li,z){ m.userData.active=true; m.userData.lane=li; m.userData.magnetPull=false; m.userData.magnetMult=0; m.position.set(LANE_X[li],FLOOR_Y+0.55,z); m.visible=true; }
+function deactivateItem(m){ m.userData.active=false; m.userData.magnetPull=false; m.visible=false; m.position.z=SPAWN_Z-300; }
+
+// ══════════════════════════════════════════════════════════════
+//  SPAWN
+// ══════════════════════════════════════════════════════════════
+function spawnNext(){
+  // 改善17: 序盤8秒は障害物を減らし、アイテム多めで慣らす
+  const warmup = elapsed<8;
+  // 改善11: 一定確率で「密集ゾーン」(短間隔で連続する障害物の波)を発生
+  // 改善4: ボーナスラッシュ中は密集ゾーンを発生させない(ご褒美タイムを邪魔しない)
+  if(!warmup && !denseZoneActive && !bonusRushActive && Math.random()<0.06){
+    denseZoneActive=true; denseZoneCount=3+Math.floor(Math.random()*3);
+    showPopup('⚠ 密集ゾーン','#ff5000');
+  }
+
+  const itemChance = bonusRushActive?0.9:(warmup?0.7:(denseZoneActive?0.15:0.44));
+  const isItem=Math.random()<itemChance;
+  const li=Math.floor(Math.random()*3);
+
+  if(isItem){
+    // 改善3: アイテムをライン状に並べて配置(取る快感の波を作る)
+    const patterns=[
+      [[li,0]],                                   // 単発
+      [[li,0],[li,1]],                            // 縦2連
+      [[li,0],[li,1],[li,2]],                     // 縦3連
+      [[(li+1)%3,0],[li,1],[(li+2)%3,2]],         // ジグザグ
+    ];
+    const pat=warmup?patterns[Math.min(2,1+Math.floor(Math.random()*2))]:patterns[Math.floor(Math.random()*patterns.length)];
+    let idx=0;
+    for(const [lane,row] of pat){
+      const m=itemPool.find(x=>!x.userData.active);
+      if(m){ activateItem(m,lane,SPAWN_Z-row*4.2); idx++; }
+    }
+  } else {
+    const type=rndObsType();
+    const p=obsPool.find(g=>!g.userData.active);
+    if(p) activateObs(p,type,li);
+    // 密集ゾーン中は追加でもう1体(別レーン)出す
+    if(denseZoneActive){
+      denseZoneCount--;
+      const li2=(li+1+Math.floor(Math.random()*2))%3;
+      const p2=obsPool.find(g=>!g.userData.active);
+      if(p2) activateObs(p2,rndObsType(),li2);
+      if(denseZoneCount<=0) denseZoneActive=false;
+    }
+  }
+}
+let denseZoneActive=false, denseZoneCount=0;
+// 改善4: ボーナスラッシュ(1000m毎の6秒間、アイテム多発+取得点1.5倍のご褒美タイム)
+let bonusRushActive=false, bonusRushTimer=0;
+function startBonusRush(){
+  bonusRushActive=true; bonusRushTimer=6;
+  showPopup('★ ボーナスラッシュ ★','#ffd700');
+  playSfx('hyper');
+  const b=document.getElementById('hyper-warn');
+  if(b){ b.textContent='★ ボーナスラッシュ ★'; b.style.color='#ffd700'; b.style.textShadow='0 0 14px #ffd700'; b.style.opacity='1'; }
+}
+function endBonusRush(){
+  bonusRushActive=false;
+  const b=document.getElementById('hyper-warn');
+  if(b){ b.style.opacity='0';
+    // 表示を元(CHARGE用)に戻す
+    setTimeout(()=>{ b.textContent='⚡ チャージ ⚡'; b.style.color='#ff00cc'; b.style.textShadow='0 0 14px #ff00cc'; },300);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  LASER
+// ══════════════════════════════════════════════════════════════
+const laserGeo=new THREE.CylinderGeometry(0.055,0.055,70,8);
+const laserMat=new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0});
+const laserMesh=new THREE.Mesh(laserGeo,laserMat);
+laserMesh.rotation.x=Math.PI/2; scene.add(laserMesh);
+let laserT=0;
+function fireLaser(x){ laserMesh.position.set(x,playerY,PLAYER_Z-35); laserMat.opacity=1; laserT=0.16; }
+function updateLaser(delta){ if(laserT>0){ laserT-=delta; laserMat.opacity=Math.max(0,laserT/0.16); } }
+
+// ══════════════════════════════════════════════════════════════
+//  MAGNET BEAM（視覚化）
+// ══════════════════════════════════════════════════════════════
+const BEAM_N=5; // Pi4向け軽量化: 10→5
+const beamPool=[];
+for(let i=0;i<BEAM_N;i++){
+  const bg=new THREE.BufferGeometry(); const ba=new Float32Array(6); bg.setAttribute('position',new THREE.BufferAttribute(ba,3));
+  const bm=new THREE.LineBasicMaterial({color:0x00f3ff,transparent:true,opacity:0});
+  const bl=new THREE.Line(bg,bm); scene.add(bl); beamPool.push({mesh:bl,timer:0});
+}
+function showBeam(from,to){
+  const b=beamPool.find(x=>x.timer<=0); if(!b) return;
+  const pa=b.mesh.geometry.attributes.position.array;
+  from.toArray(pa,0); to.toArray(pa,3);
+  b.mesh.geometry.attributes.position.needsUpdate=true;
+  b.mesh.material.opacity=0.8; b.timer=0.22;
+}
+function updateBeams(delta){
+  beamPool.forEach(b=>{ if(b.timer>0){ b.timer-=delta; b.mesh.material.opacity=Math.max(0,b.timer/0.22*0.8); } });
+}
+
+// ══════════════════════════════════════════════════════════════
+//  PARTICLES（破壊エフェクト）
+// ══════════════════════════════════════════════════════════════
+const PART_N=20; // Pi4向け軽量化: 40→20
+const partPool=[];
+for(let i=0;i<PART_N;i++){
+  const pm=new THREE.Mesh(new THREE.BoxGeometry(0.09,0.09,0.09),new THREE.MeshBasicMaterial({color:0xff1744,transparent:true}));
+  pm.visible=false; pm.userData={vel:new THREE.Vector3(),life:0,maxL:0}; scene.add(pm); partPool.push(pm);
+}
+function spawnParticles(pos,color,count=14,speed=1){
+  let n=0;
+  for(let i=0;i<partPool.length&&n<count;i++){
+    const m=partPool[i]; if(m.visible) continue;
+    m.material.color.setHex(color); m.position.copy(pos);
+    const spd=(5+Math.random()*10)*speed, ang=Math.random()*Math.PI*2;
+    m.userData.vel.set(Math.cos(ang)*spd*(Math.random()-0.5)*2,Math.random()*8+2,(Math.random()-0.5)*spd);
+    m.userData.life=0.7+Math.random()*0.35; m.userData.maxL=m.userData.life;
+    m.visible=true; n++;
+  }
+}
+function updateParticles(delta){
+  partPool.forEach(m=>{
+    if(!m.visible) return;
+    m.userData.life-=delta; if(m.userData.life<=0){m.visible=false;return;}
+    m.position.addScaledVector(m.userData.vel,delta);
+    m.userData.vel.y+=GRAVITY*delta*0.45;
+    m.material.opacity=m.userData.life/m.userData.maxL;
+  });
+}
+
+// ══════════════════════════════════════════════════════════════
+//  HYPERDRIVE
+// ══════════════════════════════════════════════════════════════
+function triggerHyper(){
+  if(hyperActive) return;
+  hyperActive=true; hyperSpeedMult=1.5;
+  document.getElementById('hyper-badge').style.opacity='1';
+  scene.background=new THREE.Color(0x1a0025);
+  scene.fog=new THREE.FogExp2(0x1a0025,0.018);
+  grids.forEach(g=>g.material.color.setHex(0xff00cc));
+  sideGrids.forEach(g=>g.material.color.setHex(0xff00cc));
+  // 改善2: レーン区切り線もマゼンタに同期
+  if(typeof laneDivMeshes!=='undefined') laneDivMeshes.forEach(m=>m.material.color.setHex(0xff00cc));
+  // エンジンピッチ1.3倍
+  if(audioReady&&engOsc){
+    const cur=55+Math.min(110,(gameSpeed-BASE_SPD*0.9)/60*115);
+    engOsc.frequency.cancelScheduledValues(audioCtx.currentTime);
+    engOsc.frequency.setTargetAtTime(cur*1.3,audioCtx.currentTime,0.05);
+  }
+  playSfx('hyper');
+  clearTimeout(hyperTimer);
+  hyperTimer=setTimeout(()=>{
+    hyperActive=false; hyperSpeedMult=1.0;
+    document.getElementById('hyper-badge').style.opacity='0';
+    scene.background=new THREE.Color(0x000010);
+    scene.fog=new THREE.FogExp2(0x000010,0.016);
+    grids.forEach(g=>g.material.color.setHex(0x00f3ff));
+    sideGrids.forEach(g=>g.material.color.setHex(0x00aacc));
+    // 改善2: レーン線の色も元に戻す
+    if(typeof laneDivMeshes!=='undefined') laneDivMeshes.forEach(m=>m.material.color.setHex(0x00f3ff));
+    if(audioReady&&engOsc){
+      const r=55+Math.min(110,(gameSpeed-BASE_SPD*0.9)/60*115);
+      engOsc.frequency.setTargetAtTime(r,audioCtx.currentTime,0.12);
+    }
+  },3000);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  SLOW MOTION（ヒットストップ）
+// ══════════════════════════════════════════════════════════════
+function triggerSlowmo(dur=150){
+  if(slowmoActive) return;
+  slowmoActive=true; timeScale=0.1;
+  document.getElementById('slowmo-vig').style.opacity='1';
+  setTimeout(()=>{ slowmoActive=false; timeScale=1; document.getElementById('slowmo-vig').style.opacity='0'; },dur);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  CAMERA SHAKE
+// ══════════════════════════════════════════════════════════════
+function triggerShake(mag=0.14,dur=0.35){ camShakeT=dur; camShakeMag=mag; }
+
+function updateCamera(rawDelta){
+  if(camShakeT>0){
+    camShakeT-=rawDelta;
+    const s=camShakeMag*(camShakeT/0.35);
+    camera.position.x=(Math.random()-0.5)*s*2;
+    camera.position.y=CAM_BASE_Y+(Math.random()-0.5)*s;
+  } else { camera.position.x=0; camera.position.y=CAM_BASE_Y; }
+  camera.position.z=CAM_BASE_Z;
+  // dynamic FOV(速度感の演出。歪みが出過ぎないよう控えめに)
+  const tFOV=restFOV+charFovBias+Math.min(5,(gameSpeed-BASE_SPD*0.9)/9)+(hyperActive?2:0);
+  camFOV+=(tFOV-camFOV)*Math.min(1,3*rawDelta);
+  camera.fov=camFOV;
+  // 根本修正: 注視点を固定の遠方点ではなく、自機の実際の高さに追従させる。
+  // 以前は遠くの固定点(0,0.8,-12)を見ていたため、カメラに近い自機は
+  // わずかな高さの変化(しゃがみ等)でも画面上で大きく動き、下端で見切れていた。
+  // 自機の高さを基準に注視点を作ることで、通常/しゃがみ/ジャンプいずれも
+  // 常に画面内の同じ位置に自機が収まるようにする。
+  const desiredAimY=playerY+1.15;
+  camAimY+=(desiredAimY-camAimY)*Math.min(1,10*rawDelta);
+  camera.lookAt(0,camAimY,-12);
+  // roll(上のlookAtでx/y回転が決まった後、z回転だけ上書きして傾きを演出)
+  const dxL=targetX-playerX;
+  camRoll+=(-dxL*0.044-camRoll)*Math.min(1,8*rawDelta);
+  camera.rotation.z=camRoll;
+  // curve
+  curvePhase+=rawDelta*0.18;
+  camera.position.x+=Math.sin(curvePhase)*0.55*rawDelta*2;
+  camera.updateProjectionMatrix();
+}
+
+// ══════════════════════════════════════════════════════════════
+//  AUDIO
+// ══════════════════════════════════════════════════════════════
+let audioCtx=null, engOsc=null, engGain=null, audioReady=false;
+let beatInterval=null;
+function startBeatLoop(){
+  if(beatInterval) return;
+  const BPM=128; const beat=60/BPM;
+  // 4拍子キックパターン: 1,3拍にキック、2,4拍にハイハット
+  let beatCount=0;
+  beatInterval=setInterval(()=>{
+    if(!audioReady||gstate!=='playing'){ return; }
+    const ctx=audioCtx, t=ctx.currentTime;
+    const b=beatCount%4;
+    if(b===0||b===2){
+      // 改善7: キックドラム（低周波ブリップ）
+      const o=ctx.createOscillator(), g2=ctx.createGain();
+      o.connect(g2); g2.connect(ctx.destination);
+      o.type='sine'; o.frequency.setValueAtTime(80*(hyperActive?1.3:1),t);
+      o.frequency.exponentialRampToValueAtTime(35,t+0.12);
+      g2.gain.setValueAtTime(0.12,t); g2.gain.exponentialRampToValueAtTime(0.001,t+0.14);
+      o.start(t); o.stop(t+0.14);
+    } else {
+      // ハイハット（高周波ノイズ的なクリック）
+      const o=ctx.createOscillator(), g2=ctx.createGain();
+      o.connect(g2); g2.connect(ctx.destination);
+      o.type='square'; o.frequency.setValueAtTime(800,t);
+      g2.gain.setValueAtTime(0.025,t); g2.gain.exponentialRampToValueAtTime(0.001,t+0.04);
+      o.start(t); o.stop(t+0.04);
+    }
+    beatCount++;
+  }, beat*1000);
+}
+function stopBeatLoop(){ if(beatInterval){ clearInterval(beatInterval); beatInterval=null; } }
+
+function initAudio(){
+  if(audioReady) return;
+  try{
+    audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+    audioReady=true;
+    const mg=ensureMasterGain();
+    engOsc=audioCtx.createOscillator(); engGain=audioCtx.createGain();
+    const flt=audioCtx.createBiquadFilter(); flt.type='lowpass'; flt.frequency.value=420;
+    engOsc.type='sawtooth'; engOsc.frequency.value=55;
+    engOsc.connect(flt); flt.connect(engGain); engGain.connect(mg||audioCtx.destination);
+    engGain.gain.value=0; engOsc.start();
+  }catch(e){}
+}
+function updateEngineAudio(){
+  if(!audioReady||!engOsc) return;
+  const ratio=(effSpeed-BASE_SPD*0.9)/60;
+  if(!hyperActive) engOsc.frequency.setTargetAtTime(55+Math.min(115,ratio*120),audioCtx.currentTime,0.1);
+  engGain.gain.setTargetAtTime(gstate==='playing'?0.04+Math.min(0.07,ratio*0.08):0,audioCtx.currentTime,0.15);
+}
+// ══════════════════════════════════════════════════════════════
+//  AUDIO SETTINGS(改善4/5: マスター音量とミュート)
+//  全効果音は masterGain 経由で出力し、一括で音量調整・ミュートできる。
+//  文化祭会場で音がうるさい/静かにしたい場面に対応するため。
+// ══════════════════════════════════════════════════════════════
+let masterGainNode=null, isMuted=false, masterVolume=0.7;
+function ensureMasterGain(){
+  if(!audioReady||!audioCtx) return null;
+  if(!masterGainNode){
+    masterGainNode=audioCtx.createGain();
+    masterGainNode.gain.value=isMuted?0:masterVolume;
+    masterGainNode.connect(audioCtx.destination);
+  }
+  return masterGainNode;
+}
+function applyMasterVolume(){
+  if(!masterGainNode||!audioCtx) return;
+  masterGainNode.gain.setTargetAtTime(isMuted?0:masterVolume,audioCtx.currentTime,0.05);
+}
+function playSfx(type){
+  if(!audioReady) return;
+  const mg=ensureMasterGain();
+  const ctx=audioCtx, g=ctx.createGain(), o=ctx.createOscillator();
+  g.connect(mg||ctx.destination); o.connect(g); const t=ctx.currentTime;
+  const sfxMap={
+    item:   ()=>{ o.type='sine'; o.frequency.setValueAtTime(880,t); o.frequency.exponentialRampToValueAtTime(1320,t+0.08); g.gain.setValueAtTime(0.12,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.18); o.start(); o.stop(t+0.18); },
+    break:  ()=>{ o.type='square'; o.frequency.setValueAtTime(200,t); o.frequency.exponentialRampToValueAtTime(40,t+0.3); g.gain.setValueAtTime(0.22,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.35); o.start(); o.stop(t+0.35); },
+    jump:   ()=>{ o.type='sine'; o.frequency.setValueAtTime(440,t); o.frequency.exponentialRampToValueAtTime(680,t+0.12); g.gain.setValueAtTime(0.08,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.2); o.start(); o.stop(t+0.2); },
+    hit:    ()=>{ o.type='square'; o.frequency.setValueAtTime(110,t); o.frequency.exponentialRampToValueAtTime(33,t+0.45); g.gain.setValueAtTime(0.28,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.5); o.start(); o.stop(t+0.5); },
+    lane:   ()=>{ o.type='triangle'; o.frequency.setValueAtTime(660,t); o.frequency.exponentialRampToValueAtTime(880,t+0.07); g.gain.setValueAtTime(0.07,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.12); o.start(); o.stop(t+0.12); },
+    hyper:  ()=>{ o.type='sawtooth'; o.frequency.setValueAtTime(110,t); o.frequency.exponentialRampToValueAtTime(440,t+0.3); g.gain.setValueAtTime(0.18,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.5); o.start(); o.stop(t+0.5); },
+    nearmiss:()=>{ o.type='sine'; o.frequency.setValueAtTime(660,t); o.frequency.exponentialRampToValueAtTime(330,t+0.15); g.gain.setValueAtTime(0.1,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.22); o.start(); o.stop(t+0.22); },
+    coin:   ()=>{ o.type='sine'; o.frequency.setValueAtTime(1046,t); o.frequency.exponentialRampToValueAtTime(1568,t+0.1); g.gain.setValueAtTime(0.1,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.2); o.start(); o.stop(t+0.2); },
+    input:  ()=>{ o.type='square'; o.frequency.setValueAtTime(1200,t); g.gain.setValueAtTime(0.06,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.05); o.start(); o.stop(t+0.05); },
+  };
+  if(sfxMap[type]) sfxMap[type]();
+}
+
+// ══════════════════════════════════════════════════════════════
+//  ITEM ACQUISITION（スキル/接触共通）
+// ══════════════════════════════════════════════════════════════
+// 改善3: コンボ数に応じてアイテムの発光色を変化させる
+function getItemColor(){
+  if(combo>=20) return 0xff00cc;       // 虹(マゼンタ)
+  if(combo>=10) return 0xffd700;       // 金
+  if(combo>=5)  return 0x00ffff;       // シアン
+  return 0x00ff88;                     // 通常(緑)
+}
+function acquireItem(m, scoreMult){
+  // scoreMult: 1=通常接触, 2=Sphere magnet, 0.5=Cylinder supermagnet
+  const base=10;
+  const comboBonus=1+Math.floor(combo/5);
+  // 改善4: ボーナスラッシュ中は取得点1.5倍
+  const rushMult=bonusRushActive?1.5:1.0;
+  const pts=Math.round(base*comboBonus*scoreMult*rushMult);
+  score+=pts; combo++;
+  if(combo>statMaxCombo){ statMaxCombo=combo; }
+  statItemsGot++;
+  updateHUD(); showCombo();
+  // 加点をフローティング表示(取った実感を出す)
+  spawnScorePop('+'+pts, getItemColor());
+  // ハイパードライブが近い時の予兆表示(あと1コンボで発動)
+  if((combo+1)%HYPER_TRIGGER===0 && !hyperActive){ showHyperWarn(); }
+  // ハイパードライブトリガー
+  if(combo>0&&combo%HYPER_TRIGGER===0) triggerHyper();
+  // 称号チェック
+  if(combo>=15) checkTitleUnlock('combo15');
+  playSfx('item');
+  deactivateItem(m);
+}
+// 加点フローティング(画面上部中央付近にふわっと出して消す)
+let _scorePopPool=[];
+function spawnScorePop(txt,color){
+  let el=_scorePopPool.find(e=>e._free);
+  if(!el){
+    el=document.createElement('div');
+    el.style.cssText=`position:fixed;z-index:29;pointer-events:none;font-family:'Orbitron',monospace;
+      font-weight:900;font-size:clamp(14px,4vw,22px);transition:transform .7s ease-out,opacity .7s ease-out;`;
+    document.body.appendChild(el); _scorePopPool.push(el);
+  }
+  el._free=false;
+  const hex='#'+color.toString(16).padStart(6,'0');
+  el.textContent=txt; el.style.color=hex; el.style.textShadow=`0 0 12px ${hex}`;
+  el.style.left='50%'; el.style.top='30%';
+  el.style.transform='translate(-50%,0) scale(1)'; el.style.opacity='1';
+  requestAnimationFrame(()=>{ el.style.transform='translate(-50%,-46px) scale(1.2)'; el.style.opacity='0'; });
+  clearTimeout(el._t); el._t=setTimeout(()=>{ el._free=true; },720);
+}
+function showHyperWarn(){
+  const w=document.getElementById('hyper-warn');
+  if(!w) return;
+  w.style.opacity='1';
+  clearTimeout(w._t); w._t=setTimeout(()=>{ w.style.opacity='0'; },900);
+}
+// 改善5: コンボ途切れの喪失フィードバック
+function breakCombo(){
+  showPopup(`COMBO ×${combo} 途切れた…`,'#ff5566');
+  if(audioReady){
+    // 下降音(がっかり感)
+    const mg=ensureMasterGain();
+    const o=audioCtx.createOscillator(), g=audioCtx.createGain();
+    o.connect(g); g.connect(mg||audioCtx.destination);
+    const t=audioCtx.currentTime;
+    o.type='sawtooth'; o.frequency.setValueAtTime(440,t); o.frequency.exponentialRampToValueAtTime(90,t+0.35);
+    g.gain.setValueAtTime(0.12,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.4);
+    o.start(); o.stop(t+0.4);
+  }
+  // コンボゲージ(自機オーラ)が一気に萎むのは updatePlayer 側で combo=0 により自動反映される
+  if(!REDUCE_MOTION){
+    let f=document.getElementById('combo-break-flash');
+    if(!f){
+      f=document.createElement('div'); f.id='combo-break-flash';
+      f.style.cssText=`position:fixed;inset:0;z-index:26;pointer-events:none;opacity:0;
+        background:radial-gradient(circle at center,transparent 55%,rgba(60,0,0,.5) 100%);transition:opacity .15s;`;
+      document.body.appendChild(f);
+    }
+    f.style.opacity='1'; setTimeout(()=>{ f.style.opacity='0'; },200);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  SKILL
+// ══════════════════════════════════════════════════════════════
+function activateSkill(){
+  if(gstate!=='playing') return;
+  initAudio();
+  const now=performance.now();
+  if(now-skillLast<selChar.cd) return;
+  skillLast=now; skillCD=true;
+  fireLaser(playerX);
+  // 発動を全身で感じさせる演出(キャラカラーの放射フラッシュ+シェイク+短いヒットストップ)
+  skillFlash(selChar.color);
+  triggerShake(0.09,0.18);
+  triggerSlowmo(90);
+  playSfx('hyper');
+
+  switch(selChar.skill){
+    case 'MAGNET':
+      // Sphere: 自レーンのアイテムに磁力フラグ（scoreMult=2）
+      itemPool.forEach(m=>{
+        if(!m.userData.active||m.userData.lane!==lane) return;
+        if(m.position.z<PLAYER_Z&&m.position.z>PLAYER_Z-36){
+          m.userData.magnetPull=true; m.userData.magnetMult=2.0;
+          showBeam(m.position,playerGroup.position);
+        }
+      });
+      break;
+
+    case 'BREAK':{
+      let closest=null, closestZ=-Infinity;
+      obsPool.forEach(g=>{
+        if(!g.userData.active||g.userData.type!==OBS_WALL||g.userData.lane!==lane) return;
+        if(g.position.z<PLAYER_Z&&g.position.z>closestZ){ closestZ=g.position.z; closest=g; }
+      });
+      if(closest){
+        const isJust=closestZ>PLAYER_Z-JUST_DIST;
+        if(isJust){
+          triggerSlowmo(100); triggerShake(0.2,0.3);
+          score+=JUST_BONUS; showPopup(`⚡ ジャスト破壊! +${JUST_BONUS}`,'#ffd700');
+          spawnParticles(closest.position.clone(),0xffd700,20,1.4);
+          // 後方へ飛散する破片（赤）
+          spawnParticles({x:closest.position.x,y:closest.position.y,z:PLAYER_Z+1},0xff1744,15,1.8);
+          checkTitleUnlock('justBreak');
+        } else {
+          spawnParticles(closest.position.clone(),0xff6600,10,0.8);
+        }
+        deactivateObs(closest); statWallBroken++; playSfx('break');
+      }
+      break;
+    }
+
+    case 'SUPER_MAGNET':
+      // Cylinder: 全3レーン（scoreMult=0.5）
+      itemPool.forEach(m=>{
+        if(!m.userData.active) return;
+        if(m.position.z<PLAYER_Z&&m.position.z>PLAYER_Z-36){
+          m.userData.magnetPull=true; m.userData.magnetMult=0.5;
+          showBeam(m.position,playerGroup.position);
+        }
+      });
+      break;
+  }
+  setTimeout(()=>{ skillCD=false; },selChar.cd);
+}
+
+// 改善1: スキル発動の全画面フラッシュ(キャラカラーで放射)
+function skillFlash(color){
+  if(REDUCE_MOTION) return;
+  const hex='#'+color.toString(16).padStart(6,'0');
+  let f=document.getElementById('skill-flash');
+  if(!f){
+    f=document.createElement('div'); f.id='skill-flash';
+    f.style.cssText='position:fixed;inset:0;z-index:27;pointer-events:none;opacity:0;transition:opacity .12s;';
+    document.body.appendChild(f);
+  }
+  f.style.background=`radial-gradient(circle at 50% 62%, ${hex}44, transparent 62%)`;
+  f.style.opacity='1';
+  clearTimeout(f._t); f._t=setTimeout(()=>{ f.style.opacity='0'; },160);
+  // 衝撃波リング(拡散して消える)
+  const ring=document.createElement('div');
+  ring.style.cssText=`position:fixed;left:50%;top:62%;z-index:28;pointer-events:none;
+    width:40px;height:40px;border-radius:50%;border:3px solid ${hex};
+    transform:translate(-50%,-50%) scale(1);opacity:.9;
+    transition:transform .5s cubic-bezier(.2,.7,.3,1),opacity .5s;`;
+  document.body.appendChild(ring);
+  requestAnimationFrame(()=>{ ring.style.transform='translate(-50%,-50%) scale(9)'; ring.style.opacity='0'; });
+  setTimeout(()=>ring.remove(),560);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  MAGNET PULL UPDATE（非線形イージング）
+//  二次関数的加速: 初速ゆっくり→自機に近づくほど爆速で吸収
+// ══════════════════════════════════════════════════════════════
+function updateMagnetPull(delta){
+  itemPool.forEach(m=>{
+    if(!m.userData.active||!m.userData.magnetPull) return;
+    const dx=playerX-m.position.x;
+    const dz=PLAYER_Z-m.position.z;
+    const dist2=Math.sqrt(dx*dx+dz*dz)+0.001;
+    // 距離が近いほど加速率が二次関数的に上昇
+    // accel = k / dist^1.5 で磁力を近似
+    const accel=Math.min(60, 2.2/Math.pow(dist2,1.5)*200)*delta;
+    m.position.x+=dx/dist2*accel*dist2;
+    m.position.z+=dz/dist2*accel*dist2;
+    // プレイヤーに到達したら獲得
+    if(dist2<0.7){
+      acquireItem(m, m.userData.magnetMult);
+    }
+  });
+}
+
+// ══════════════════════════════════════════════════════════════
+//  NEAR MISS & JUST EVADE
+// ══════════════════════════════════════════════════════════════
+function checkNearMiss(g){
+  if(g.userData.passed) return;
+  const dz=g.position.z-PLAYER_Z;
+  if(dz>0&&dz<0.9){
+    g.userData.passed=true;
+    const dx=Math.abs(g.position.x-playerX);
+    if(dx>=NEAR_INNER&&dx<=NEAR_OUTER){
+      // 改善18: ニアミス連続ボーナス。連続で決めるほど倍率アップ(最大×5)
+      nearMissStreak++; nearMissStreakTimer=2.2; // 2.2秒以内に次を決めれば継続
+      const mult=Math.min(5,nearMissStreak);
+      const pts=50*mult;
+      score+=pts; statNearMiss++;
+      if(statNearMiss>=10) checkTitleUnlock('nearmiss10');
+      showPopup(mult>1?`ギリ回避 ×${mult}! +${pts}`:'ギリ回避! +50','#00ff88');
+      playSfx('nearmiss');
+      triggerShake(0.06,0.18);
+    }
+    // JUST EVADE: 衝突判定のすぐ外側(NEAR_EVADE_D以内)
+    if(dx>=1.0&&dx<1.0+NEAR_EVADE_D){
+      statJustEvade++;
+      // グリッド白フラッシュ（全画面ではなくグリッドのみ）
+      grids.forEach(g2=>g2.material.color.setHex(0xffffff));
+      setTimeout(()=>{ if(!hyperActive) grids.forEach(g2=>g2.material.color.setHex(0x00f3ff)); },120);
+      const eh=document.getElementById('evade-hud');
+      eh.style.opacity='1';
+      clearTimeout(evadeTimer);
+      evadeTimer=setTimeout(()=>{ eh.style.opacity='0'; },600);
+    }
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  COLLISION DETECTION
+// ══════════════════════════════════════════════════════════════
+function checkCollisions(){
+  const pz=PLAYER_Z, px=playerX, py=playerY;
+  const zComp=Math.min(0.22,(gameSpeed-BASE_SPD)/120);
+
+  // アイテム（通常接触: scoreMult=1）
+  itemPool.forEach(m=>{
+    if(!m.userData.active||m.userData.magnetPull) return;
+    if(Math.abs(m.position.z-pz)<0.75&&Math.abs(m.position.x-px)<0.88){
+      acquireItem(m,1.0);
+    }
+  });
+
+  // 障害物
+  obsPool.forEach(g=>{
+    if(!g.userData.active) return;
+    checkNearMiss(g);
+    const dz=Math.abs(g.position.z-pz), dx=Math.abs(g.position.x-px);
+    if(dz>2.3||dx>1.6) return;
+    const type=g.userData.type; let hit=false; const zTh=0.85-zComp;
+    if(type===OBS_WALL&&dz<zTh&&dx<1.05) hit=true;
+    else if(type===OBS_BAR&&dz<0.65&&dx<1.15&&(!isJump||(py<FLOOR_Y+0.85))) hit=true;
+    else if(type===OBS_GATE&&dz<0.65&&dx<1.2&&!isDuck) hit=true;
+    if(hit){ lastDeathCause=type; triggerGameOver(); }
+  });
+}
+// 死因(最後に衝突した障害物タイプ)。ゲームオーバー画面で助言表示に使う
+let lastDeathCause=null;
+const DEATH_ADVICE={
+  [OBS_WALL]:{icon:'🟥',msg:'赤い壁は左右によけろ'},
+  [OBS_BAR] :{icon:'🟨',msg:'黄色いバーはジャンプで飛び越えろ'},
+  [OBS_GATE]:{icon:'🟪',msg:'紫のゲートはしゃがんでくぐれ'},
+};
+
+// ══════════════════════════════════════════════════════════════
+//  HUD
+// ══════════════════════════════════════════════════════════════
+const hScore=document.getElementById('h-score');
+const hCombo=document.getElementById('h-combo');
+const hDist=document.getElementById('h-dist');
+const skillBadgeEl=document.getElementById('skill-badge');
+const spbEl=document.getElementById('spb');
+const stateIndEl=document.getElementById('state-ind');
+const comboFlashEl=document.getElementById('combo-flash');
+const popupEl=document.getElementById('popup');
+const playerTitleEl=document.getElementById('player-title');
+
+let _lastShownScore=0;
+function updateHUD(){
+  hScore.textContent=score.toLocaleString();
+  // 改善1: スコアが増えたらパンチ演出(加算の実感)
+  if(!REDUCE_MOTION && score>_lastShownScore){
+    hScore.style.transition='transform .08s ease-out';
+    hScore.style.transform='scale(1.18)';
+    clearTimeout(hScore._pt); hScore._pt=setTimeout(()=>{ hScore.style.transform='scale(1)'; },90);
+  }
+  _lastShownScore=score;
+  hCombo.textContent='×'+combo;
+  hDist.textContent=Math.floor(dist)+'m';
+  const bestEl=document.getElementById('h-best');
+  if(bestEl){
+    const beating=score>SD.highScore;
+    bestEl.textContent=(beating?'★ ベスト ':'ベスト ')+Math.max(SD.highScore,score).toLocaleString();
+    bestEl.style.color=beating?'#00f3ff':'rgba(255,215,0,.7)';
+  }
+}
+function updateSkillHUD(now){
+  const rem=selChar.cd-(now-skillLast);
+  const gauge=document.getElementById('skill-gauge');
+  if(!skillCD||rem<=0){
+    skillBadgeEl.textContent='準備完了'; skillBadgeEl.className='r';
+    if(gauge){ gauge.style.width='100%'; gauge.classList.add('ready'); }
+  } else {
+    skillBadgeEl.textContent=(rem/1000).toFixed(1)+'s'; skillBadgeEl.className='c';
+    if(gauge){ gauge.style.width=Math.max(0,100-(rem/selChar.cd*100))+'%'; gauge.classList.remove('ready'); }
+  }
+}
+function showCombo(){
+  if(combo<3) return;
+  comboFlashEl.textContent='コンボ ×'+combo;
+  comboFlashEl.style.color=combo>=20?'#ff00cc':combo>=10?'#ffd700':'#fff';
+  comboFlashEl.style.textShadow=combo>=20?'0 0 22px #ff00cc':'0 0 18px #00f3ff';
+  comboFlashEl.style.opacity='1';
+  comboFlashEl.classList.remove('punch'); void comboFlashEl.offsetWidth; comboFlashEl.classList.add('punch');
+  clearTimeout(comboTimer); comboTimer=setTimeout(()=>{comboFlashEl.style.opacity='0';comboFlashEl.classList.remove('punch');},720);
+}
+function showPopup(txt,color='#00f3ff'){
+  popupEl.textContent=txt; popupEl.style.color=color;
+  popupEl.style.textShadow=`0 0 16px ${color}`; popupEl.style.opacity='1';
+  popupEl.classList.remove('punch'); void popupEl.offsetWidth; popupEl.classList.add('punch');
+  clearTimeout(popupTimer); popupTimer=setTimeout(()=>{popupEl.style.opacity='0';popupEl.classList.remove('punch');},900);
+}
+function showState(txt){
+  clearTimeout(stateTimer);
+  if(!txt){stateIndEl.style.opacity='0';return;}
+  stateIndEl.textContent=txt; stateIndEl.style.opacity='1';
+  stateTimer=setTimeout(()=>stateIndEl.style.opacity='0',900);
+}
+function showTitleUnlockFX(label){
+  const el=document.getElementById('title-unlock');
+  el.innerHTML=`TITLE UNLOCKED!<br><span style="color:#ffd700">${label}</span>`;
+  el.style.opacity='1';
+  clearTimeout(titleTimer); titleTimer=setTimeout(()=>el.style.opacity='0',2500);
+}
+function updatePlayerTitleDOM(){
+  if(!SD.equippedTitle||gstate!=='playing'){ playerTitleEl.style.opacity='0'; return; }
+  // プレイヤーのスクリーン座標に追従させる（簡易固定位置）
+  playerTitleEl.textContent=SD.equippedTitle;
+  playerTitleEl.style.opacity='1';
+  playerTitleEl.style.bottom=(window.innerHeight*0.36)+'px';
+}
+function updateCoinsUI(){
+  document.getElementById('coins-title').textContent=SD.totalCoins;
+  document.getElementById('coins-val').textContent=SD.totalCoins;
+  const gachaCoinsEl=document.getElementById('coins-gacha');
+  if(gachaCoinsEl) gachaCoinsEl.textContent=SD.totalCoins;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  GAME OVER & STATS
+// ══════════════════════════════════════════════════════════════
+function triggerGameOver(){
+  if(gstate!=='playing') return;
+  gstate='gameover';
+  triggerShake(0.22,0.5); playSfx('hit');
+  if(engGain) engGain.gain.setTargetAtTime(0,audioCtx.currentTime,0.2);
+  // 改善8: ゲームオーバーでビートループ停止
+  stopBeatLoop();
+
+  // 改善4: ハイスコア更新時「NEW BEST!」フラッシュ
+  const isNewBest = score > SD.highScore;
+  if(isNewBest){ SD.highScore=score; }
+
+  // コイン付与 (スコア1000ごとに1枚、最低1枚)
+  const earned=Math.max(2,Math.floor(score/300)); // 修正: スコア1000毎→300毎に変更し、最低保証も1→2枚に引き上げ(コインをもらいやすく)
+  SD.totalCoins+=earned; saveSave();
+  playSfx('coin');
+
+  // 名前を確定してローカルランキング(このタブ内のみ)に反映
+  savePlayerName();
+  addToSessionRank();
+
+  // 反射神経年齢 15〜60歳
+  const rs=statMaxCombo*2+statNearMiss*3+statWallBroken*4+dist*0.025;
+  const age=Math.round(Math.max(15,Math.min(60,60-rs*0.42)));
+  document.getElementById('reflex-age').textContent=age+'歳';
+
+  const maxKmh=Math.round(statMaxSpeed*12);
+  const grid=document.getElementById('stats-grid');
+  grid.innerHTML=[
+    {v:score.toLocaleString(),  l:'スコア'},
+    {v:maxKmh+'km/h',           l:'最高速度'},
+    {v:statMaxCombo+'×',        l:'最大コンボ'},
+    {v:statNearMiss+'回',       l:'ギリ回避'},
+    {v:statWallBroken+'枚',     l:'破壊した壁'},
+    {v:Math.floor(dist)+'m',    l:'走った距離'},
+  ].map(s=>`<div class="stat-card"><span class="stat-val">${s.v}</span><span class="stat-lbl">${s.l}</span></div>`).join('');
+
+  // 改善4: ハイスコアなら強調表示
+  document.getElementById('go-sc').textContent=(isNewBest?'🏆 新記録! ':'')+'スコア: '+score.toLocaleString();
+  // 改善3: 前回プレイとの差分表示(2回目以降のみ)。成長の実感がRETRYの動機になる
+  const diffEl=document.getElementById('score-diff');
+  if(diffEl){
+    if(lastRunScore!==null){
+      const diff=score-lastRunScore;
+      diffEl.textContent=diff>=0?`▲ 前回より +${diff.toLocaleString()}`:`▼ 前回より ${diff.toLocaleString()}`;
+      diffEl.style.color=diff>=0?'#00ff88':'#ff8080';
+      diffEl.classList.remove('hid');
+    } else diffEl.classList.add('hid');
+  }
+  lastRunScore=score;
+  if(isNewBest){ document.getElementById('go-sc').style.color='#ffd700'; document.getElementById('go-sc').style.textShadow='0 0 20px #ffd700'; }
+  else { document.getElementById('go-sc').style.color=''; document.getElementById('go-sc').style.textShadow=''; }
+  document.getElementById('go-hi').textContent='ベスト: '+SD.highScore.toLocaleString();
+  document.getElementById('title-reward').textContent=`+${earned}🪙 コインゲット`;
+  // 死因アドバイス表示(何にぶつかったか→次への助言)
+  const dcEl=document.getElementById('death-cause');
+  if(dcEl){
+    const adv=lastDeathCause&&DEATH_ADVICE[lastDeathCause];
+    if(adv){ dcEl.textContent=`${adv.icon} ${adv.msg}`; dcEl.classList.remove('hid'); }
+    else { dcEl.classList.add('hid'); }
+  }
+  // 結果テキスト表示(シェア機能は撤去済みだが、記録の参考表示として残す)
+  const shareText=`🎮 黒工電子科 CYBER RUNNER\nスコア: ${score.toLocaleString()}${isNewBest?' 🏆新記録!':''}\nコンボ: ${statMaxCombo}× / ${Math.floor(dist)}m走破\n称号: ${SD.equippedTitle||'なし'}\n黒工文化祭2026で挑戦せよ！`;
+  const shareEl=document.getElementById('share-text');
+  if(shareEl) shareEl.textContent=shareText;
+  document.getElementById('gover').classList.remove('hid');
+  const goT=document.querySelector('.go-t');
+  if(goT){ goT.style.animation='none'; void goT.offsetWidth; goT.style.animation=''; }
+  document.getElementById('hud').style.display='none';
+  document.getElementById('coins-hud').style.display='none';
+  document.getElementById('btn-pause').style.display='none';
+  playerTitleEl.style.opacity='0';
+
+  // 改善12: リザルトを段階的に出す(GAME OVER→スコア→統計→報酬の順にフェードイン)
+  runResultSequence(isNewBest, earned);
+}
+
+// 改善6/12/13: リザルトの演出シーケンス
+function runResultSequence(isNewBest, earned){
+  const steps=[
+    document.querySelector('.go-t'),
+    document.getElementById('go-sc'),
+    document.getElementById('go-hi'),
+    document.getElementById('score-diff'),
+    document.getElementById('death-cause'),
+    document.getElementById('stats-grid'),
+    document.querySelector('.reflex-card'),
+    document.getElementById('title-reward'),
+  ].filter(Boolean);
+
+  if(REDUCE_MOTION){
+    steps.forEach(el=>{ el.style.opacity='1'; el.style.transform='none'; });
+    updateCoinsUI();
+    if(isNewBest) flashNewBest();
+    return;
+  }
+
+  // まず全部隠す
+  steps.forEach(el=>{ el.style.opacity='0'; el.style.transform='translateY(10px)'; el.style.transition='opacity .4s ease,transform .4s ease'; });
+  // 順番に出す
+  steps.forEach((el,i)=>{
+    setTimeout(()=>{ el.style.opacity='1'; el.style.transform='translateY(0)'; },180+i*160);
+  });
+
+  // ハイスコア更新なら、GAME OVER表示直後に全画面フラッシュ
+  if(isNewBest) setTimeout(flashNewBest,180);
+
+  // 報酬コインが出るタイミング(最後のステップ)で、コイン表示へ飛ばす演出+カウントアップ
+  const rewardDelay=180+steps.length*160;
+  setTimeout(()=>{
+    flyCoinsToHud(earned);
+    const before=SD.totalCoins-earned;
+    rollNumber(document.getElementById('coins-title'), before, SD.totalCoins, 700);
+    rollNumber(document.getElementById('coins-val'),   before, SD.totalCoins, 700);
+    rollNumber(document.getElementById('coins-gacha'), before, SD.totalCoins, 700);
+  },rewardDelay);
+}
+
+// 改善6: ハイスコア更新の全画面フラッシュ
+function flashNewBest(){
+  let f=document.getElementById('newbest-flash');
+  if(!f){
+    f=document.createElement('div'); f.id='newbest-flash';
+    f.style.cssText=`position:fixed;inset:0;z-index:115;pointer-events:none;opacity:0;
+      background:radial-gradient(circle at center,rgba(255,215,0,.35),transparent 70%);
+      transition:opacity .18s;`;
+    document.body.appendChild(f);
+  }
+  f.style.opacity='1'; playSfx('hyper');
+  setTimeout(()=>{ f.style.opacity='0'; },220);
+}
+
+// 改善13: 報酬コインがコイン表示めがけて飛ぶ演出
+function flyCoinsToHud(n){
+  if(REDUCE_MOTION) return;
+  const count=Math.min(12,Math.max(4,Math.floor(n/3)));
+  const targetEl=document.getElementById('coins-title')||document.getElementById('coins-val');
+  const tr=targetEl?targetEl.getBoundingClientRect():{left:innerWidth/2,top:24,width:0,height:0};
+  const tx=tr.left+tr.width/2, ty=tr.top+tr.height/2;
+  for(let i=0;i<count;i++){
+    const c=document.createElement('div');
+    c.textContent='🪙';
+    c.style.cssText=`position:fixed;z-index:116;pointer-events:none;font-size:20px;
+      left:${innerWidth/2}px;top:${innerHeight*0.5}px;transition:transform .6s cubic-bezier(.4,0,.3,1),opacity .6s;`;
+    document.body.appendChild(c);
+    const spreadX=(Math.random()-0.5)*120, spreadY=(Math.random()-0.5)*80;
+    requestAnimationFrame(()=>{
+      c.style.transform=`translate(${spreadX}px,${spreadY}px)`;
+      setTimeout(()=>{
+        c.style.transform=`translate(${tx-innerWidth/2}px,${ty-innerHeight*0.5}px) scale(.5)`;
+        c.style.opacity='0';
+      },120+i*30);
+    });
+    setTimeout(()=>c.remove(),900+i*30);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  ローカルランキング（保存なし・このタブの今のプレイ内だけ）
+//  外部サーバーへの送信や保存は行わず、今プレイ中のセッション内で
+//  記録したスコアだけを並べる「その場の対戦」用ランキングです。
+// ══════════════════════════════════════════════════════════════
+
+// コンプ率（所持パーツ数/全パーツ数×100）
+function calcComp(){
+  return Math.round(SD.unlockedItems.length/PARTS.length*100);
+}
+
+// プレイヤー名入力をSDに保存
+function savePlayerName(){
+  const inp=document.getElementById('name-input');
+  if(inp) SD.playerName=(inp.value||'').trim().slice(0,12);
+  saveSave();
+}
+
+// 文化祭デモ用の初期表示データ（最初は誰もプレイしていない状態を避けるための見本値）
+const MOCK_RANK=[
+  {name:'電子王',       score:98240,title:'【絶影】',            comp:100},
+  {name:'サイバー爆速', score:74100,title:'【演算器】',          comp:87},
+  {name:'黒工一号',     score:55300,title:'なし',                comp:50},
+  {name:'デストロイヤー',score:44800,title:'【高電圧デストロイヤー】',comp:62},
+  {name:'名無しの速者', score:31200,title:'なし',                comp:25},
+];
+// ランキングは localStorage に永続保存する。
+// 初回起動(保存なし)のみ MOCK_RANK を初期表示に使う。
+let persistentRanks=MOCK_RANK.slice();
+function loadRanks(){
+  if(!storageAvailable) return;
+  try{
+    const raw=window.localStorage.getItem(RANK_KEY);
+    if(raw){
+      const arr=JSON.parse(raw);
+      if(Array.isArray(arr)) persistentRanks=arr;
+    }
+  }catch(e){ /* 破損時はMOCKのまま */ }
+}
+function saveRanks(){
+  if(!storageAvailable) return;
+  try{ window.localStorage.setItem(RANK_KEY, JSON.stringify(persistentRanks)); }catch(e){}
+}
+
+// 今回のプレイ結果を永続ランキングに追加
+function addToSessionRank(){
+  persistentRanks.push({
+    name: SD.playerName||'GUEST',
+    score: score,
+    title: SD.equippedTitle||'なし',
+    comp: calcComp(),
+  });
+  persistentRanks.sort((a,b)=>b.score-a.score);
+  persistentRanks=persistentRanks.slice(0,10);
+  saveRanks();
+  renderActiveRank();
+  submitGlobalScore(); // 全員共有ランキングにも送信(有効時のみ・失敗しても無視)
+}
+
+function renderRankBoard(data){
+  const rows=document.getElementById('rb-rows');
+  if(!rows) return;
+  const medal=['🥇','🥈','🥉'];
+  rows.innerHTML=data.map((r,i)=>`
+    <div class="rb-row ${i===0?'top1':i===1?'top2':i===2?'top3':''}" style="flex-direction:column;margin-bottom:5px;border-bottom:1px solid rgba(0,243,255,.08);padding-bottom:4px;">
+      <div style="display:flex;justify-content:space-between;width:100%;">
+        <span style="color:${i===0?'#ffd700':i===1?'#c0c0c0':i===2?'#cd7f32':'inherit'}">${medal[i]||(i+1)+'.'} ${r.name||'GUEST'}${r.title&&r.title!=='なし'?'<span style="color:#ffd700;font-size:8px"> '+r.title+'</span>':''}</span>
+        <span style="color:#fff;font-family:'Orbitron',monospace;font-size:10px">${Number(r.score||0).toLocaleString()}</span>
+      </div>
+      ${Number(r.comp)>0?`<div style="font-size:8px;color:rgba(0,243,255,.4);margin-top:1px">図鑑: ${r.comp}%</div>`:''}
+    </div>`).join('');
+}
+renderRankBoard(persistentRanks);
+
+// ══════════════════════════════════════════════════════════════
+//  RESET
+// ══════════════════════════════════════════════════════════════
+function resetGame(){
+  score=0; combo=0; dist=0; elapsed=0; speedLevel=0;
+  lane=1; playerX=LANE_X[1]; targetX=LANE_X[1]; playerY=NORMAL_Y; playerVY=0;
+  isJump=false; isDuck=false; skillCD=false; skillLast=-Infinity;
+  spawnT=0; gameSpeed=BASE_SPD; effSpeed=BASE_SPD; lastTS=null;
+  timeScale=1; hyperActive=false; hyperSpeedMult=1.0; slowmoActive=false;
+  statJumps=0; statNearMiss=0; statJustEvade=0; statWallBroken=0;
+  statMaxCombo=0; statMaxSpeed=0; statItemsGot=0; curvePhase=0;
+  lastMilestone=0; nearMissStreak=0; nearMissStreakTimer=0; _lastShownScore=0;
+  denseZoneActive=false; denseZoneCount=0;
+  bonusRushActive=false; bonusRushTimer=0;
+  obsPool.forEach(g=>deactivateObs(g));
+  itemPool.forEach(m=>deactivateItem(m));
+  partPool.forEach(m=>{ m.visible=false; });
+  trailPool.forEach(t=>{ t.visible=false; t.material.opacity=0; });
+  laserMat.opacity=0; laserT=0;
+  grids.forEach(g=>{ g.material.color.setHex(0x00f3ff); g.material.opacity=0.35; });
+  scene.background=new THREE.Color(0x000010);
+  scene.fog=new THREE.FogExp2(0x000010,0.016);
+  document.getElementById('hyper-badge').style.opacity='0';
+  document.getElementById('slowmo-vig').style.opacity='0';
+  signPool.forEach(m=>{ m.userData.active=false; m.visible=false; }); signTimer=0;
+  beamPool.forEach(b=>{ b.timer=0; b.mesh.material.opacity=0; });
+  document.getElementById('evade-hud').style.opacity='0';
+  buildPlayer(selChar); updateHUD(); updateCoinsUI();
+  document.getElementById('hud').style.display='block';
+  document.getElementById('coins-hud').style.display='block';
+  document.getElementById('btn-pause').style.display='block';
+  updatePlayerTitleDOM();
+  // スワイプヒント
+  const hint=document.getElementById('swipe-hint'); hint.style.opacity='1';
+  clearTimeout(hintTimer); hintTimer=setTimeout(()=>hint.style.opacity='0',3500);
+  // カウントダウン開始(ready状態: 世界は描画されるが操作・進行は止まっている)
+  gstate='ready';
+  startCountdown();
+}
+
+// 3→2→1→GO! のカウントダウン。終わったらplayingへ移行しビートループ起動
+function startCountdown(){
+  const cd=document.getElementById('countdown');
+  const seq=['3','2','1','スタート!'];
+  let idx=0;
+  cd.classList.add('show');
+  const step=()=>{
+    if(idx>=seq.length){
+      cd.classList.remove('show'); cd.innerHTML='';
+      gstate='playing'; lastTS=null;
+      startBeatLoop();
+      return;
+    }
+    const isWord=seq[idx]==='スタート!';
+    cd.innerHTML=`<span class="cd-num${isWord?' word':''}">${seq[idx]}</span>`;
+    cd.querySelector('.cd-num').style.color=isWord?'#ffd700':'#00f3ff';
+    initAudio(); playSfx(isWord?'hyper':'lane');
+    idx++;
+    setTimeout(step,700);
+  };
+  step();
+}
+
+// ══════════════════════════════════════════════════════════════
+//  MAIN LOOP
+// ══════════════════════════════════════════════════════════════
+function loop(now){
+  requestAnimationFrame(loop);
+  if(lastTS===null) lastTS=now;
+  let rawDelta=(now-lastTS)/1000; lastTS=now;
+  if(rawDelta>0.1) rawDelta=0.1;
+  const delta=rawDelta*timeScale;
+
+  if(gstate!=='playing'){
+    updateCamera(rawDelta);
+    renderer.render(scene,camera);
+    return;
+  }
+
+  elapsed+=delta; dist+=effSpeed*delta*0.1;
+  // 改善18: ニアミス連続の持続タイマー(切れたらstreakリセット)
+  if(nearMissStreakTimer>0){ nearMissStreakTimer-=delta; if(nearMissStreakTimer<=0) nearMissStreak=0; }
+  // 改善9: 距離マイルストーン(500m毎)到達ボーナス
+  const ms=Math.floor(dist/500);
+  if(ms>lastMilestone){
+    lastMilestone=ms;
+    const bonus=ms*100;
+    score+=bonus;
+    showPopup(`${ms*500}m 到達! +${bonus}`,'#00ff88');
+    triggerShake(0.05,0.15);
+    playSfx('hyper');
+    // 改善4: 1000m毎(偶数マイルストーン)にボーナスラッシュ突入
+    if(ms%2===0 && !bonusRushActive) startBonusRush();
+  }
+  // ボーナスラッシュの残り時間管理
+  if(bonusRushActive){
+    bonusRushTimer-=delta;
+    if(bonusRushTimer<=0) endBonusRush();
+  }
+
+  // auto speed-up
+  const nLv=Math.floor(elapsed/SPD_INC_INT);
+  if(nLv>speedLevel){
+    speedLevel=nLv;
+    gameSpeed=BASE_SPD*selChar.speed*Math.pow(1+SPD_INC_RATE,speedLevel);
+    statMaxSpeed=Math.max(statMaxSpeed,gameSpeed*hyperSpeedMult);
+    spbEl.style.width=Math.min(100,(speedLevel/8)*100)+'%';
+    grids.forEach(g=>{ g.material.opacity=0.9; });
+    setTimeout(()=>{ if(!hyperActive) grids.forEach(g=>{ g.material.opacity=0.35; }); },160);
+  }
+
+  effSpeed=gameSpeed*hyperSpeedMult;
+
+  spawnInterval=Math.max(0.35,0.95-elapsed*0.006);
+  spawnT+=delta;
+  if(spawnT>=spawnInterval){ spawnT=0; spawnNext(); }
+
+  obsPool.forEach(g=>{
+    if(!g.userData.active) return;
+    g.position.z+=effSpeed*delta;
+    if(g.userData.type===OBS_WALL) g.rotation.y+=delta*0.5;
+    if(g.userData.type===OBS_GATE) g.rotation.z+=delta*2.4;
+    if(g.position.z>DESPAWN_Z) deactivateObs(g);
+  });
+
+  itemPool.forEach(m=>{
+    if(!m.userData.active) return;
+    if(!m.userData.magnetPull){
+      m.position.z+=effSpeed*delta;
+      m.rotation.y+=delta*3.5;
+      if(m.position.z>DESPAWN_Z){
+        // 改善5: 育てたコンボ(3以上)が途切れた時だけ喪失フィードバック
+        if(combo>=3) breakCombo();
+        combo=0; updateHUD(); deactivateItem(m);
+      }
+    }
+    // 改善3: アイテムの色をコンボ数に応じてリアルタイム変化
+    if(m.userData.active){
+      m.material.color.setHex(getItemColor());
+      m.material.emissive.setHex(getItemColor());
+    }
+  });
+
+  scrollWorld(delta);
+  updatePlayer(delta);
+  updateMagnetPull(delta);
+  updateLaser(delta);
+  updateBeams(delta);
+  updateParticles(delta);
+  updateTrails(delta);
+  updateStars(delta);
+  updateSpeedLines(delta);
+  updateSigns(delta);
+  updateMarkers();
+  updateWarning();
+  checkCollisions();
+  updateSkillHUD(now);
+  updateCamera(rawDelta);
+  updateEngineAudio();
+
+  if(hyperActive) ptL2.intensity=2.5+Math.sin(elapsed*20)*1.6;
+  else ptL2.intensity=1.4+Math.sin(elapsed*1.7+1.2)*0.4;
+  ptL1.intensity=1.8+Math.sin(elapsed*2.3)*0.5;
+
+  score+=Math.floor(effSpeed*delta*0.5); updateHUD();
+  renderer.render(scene,camera);
+}
+requestAnimationFrame(loop);
+
+// ══════════════════════════════════════════════════════════════
+//  PLAYER ACTIONS
+// ══════════════════════════════════════════════════════════════
+function doJump(){
+  if(isJump||gstate!=='playing') return;
+  // 改善2: 機体ごとのジャンプ初速(重量級は高く、軽量級はやや低め)
+  const jm=(selChar&&selChar.jumpMult)||1.0;
+  isJump=true; isDuck=false; playerVY=JUMP_VY*jm;
+  statJumps++; showState('↑ ジャンプ'); playSfx('jump');
+}
+function startDuck(){
+  if(isJump||gstate!=='playing') return;
+  isDuck=true; showState('↓ しゃがむ');
+}
+function stopDuck(){ isDuck=false; showState(''); }
+function moveLane(dir){
+  if(gstate!=='playing') return;
+  const nl=lane+dir; if(nl<0||nl>=3) return;
+  // 残像スポーン
+  spawnTrail(playerX,playerY); spawnTrail(playerX+(LANE_X[nl]-playerX)*0.4,playerY);
+  lane=nl; targetX=LANE_X[nl]; playSfx('lane');
+}
+
+// ══════════════════════════════════════════════════════════════
+//  TOUCH INPUT — 指の位置に直接追従（操作性改善版）
+//  ・横方向: タッチしている画面上のX座標に自機が直接追従（3D投影を考慮した正確な対応）
+//  ・上フリック: ジャンプ / 下ドラッグ保持: ダック / タップ素早く2回: スキル発動
+// ══════════════════════════════════════════════════════════════
+let touchActive=false, touchId=null;
+let touchStartX=0, touchStartY=0, touchStartT=0;
+let duckHeld=false, jumpFiredThisTouch=false, lastTapT=0;
+
+// 自機が画面上で見えているスクリーンY(NDC)を取得し、その高さで指のXを3D空間Xへ変換する
+// （遠近感を考慮し、指がどこにあっても「触れている場所＝自機の見える位置」になるようにする）
+function getPlayerNdcY(){
+  const v=new THREE.Vector3(0,NORMAL_Y,PLAYER_Z);
+  v.project(camera);
+  return v.y;
+}
+function screenXToWorldX(clientX){
+  const w=window.innerWidth||1;
+  const ndcX=(clientX/w)*2-1;
+  const ndcY=getPlayerNdcY();
+  const vec=new THREE.Vector3(ndcX,ndcY,0.5).unproject(camera);
+  const dir=vec.sub(camera.position).normalize();
+  if(Math.abs(dir.z)<1e-6) return targetX;
+  const t=(PLAYER_Z-camera.position.z)/dir.z;
+  const x=camera.position.x+dir.x*t;
+  return Math.max(PLAY_X_MIN,Math.min(PLAY_X_MAX,x));
+}
+function followFinger(clientX){
+  if(gstate!=='playing') return;
+  targetX=screenXToWorldX(clientX);
+  // スキルの対象レーン判定用に、現在最も近いレーンを更新
+  let best=0,bd=Infinity;
+  for(let i=0;i<LANE_X.length;i++){ const d=Math.abs(LANE_X[i]-targetX); if(d<bd){bd=d;best=i;} }
+  lane=best;
+}
+
+const DUCK_DRAG_PX = ()=>Math.max(40,window.innerHeight*0.07);
+const JUMP_FLICK_PX = ()=>Math.max(34,window.innerHeight*0.055);
+const JUMP_FLICK_MS = 260;
+const TAP_MOVE_PX = 18;
+const TAP_TIME_MS = 260;
+const DOUBLE_TAP_GAP_MS = 280;
+
+canvas.addEventListener('touchstart',e=>{
+  e.preventDefault();
+  markInput(); // 改善5: 無操作タイムアウト用
+  // 改善4: プレイ中以外(ポーズ/カウントダウン/メニュー)はタッチ操作を受け付けない
+  if(gstate!=='playing'){ initAudio(); return; }
+  const t=e.touches[0]; if(!t) return;
+  touchActive=true; touchId=t.identifier;
+  touchStartX=t.clientX; touchStartY=t.clientY; touchStartT=performance.now();
+  duckHeld=false; jumpFiredThisTouch=false;
+  initAudio();
+  followFinger(t.clientX); // 触れた瞬間からその位置に追従開始
+},{passive:false});
+
+canvas.addEventListener('touchmove',e=>{
+  if(!touchActive) return;
+  e.preventDefault();
+  let t=null;
+  for(let i=0;i<e.touches.length;i++){ if(e.touches[i].identifier===touchId){ t=e.touches[i]; break; } }
+  if(!t) t=e.touches[0];
+  if(!t) return;
+
+  followFinger(t.clientX);
+
+  const dy=t.clientY-touchStartY;
+  const elapsed2=performance.now()-touchStartT;
+
+  // 上方向への素早いフリック＝ジャンプ（このタッチ中1回のみ）
+  if(!jumpFiredThisTouch && dy<-JUMP_FLICK_PX() && elapsed2<JUMP_FLICK_MS){
+    doJump(); jumpFiredThisTouch=true;
+  }
+  // 下方向にしっかりドラッグ＝ダック（保持している間、ジャンプ中でなければ継続的に維持）
+  if(dy>DUCK_DRAG_PX()){
+    duckHeld=true;
+    if(!isJump&&!isDuck) startDuck(); // ジャンプ着地直後でも追従してダックに入れるよう毎フレーム確認
+  } else if(duckHeld){
+    duckHeld=false; if(isDuck) stopDuck();
+  }
+},{passive:false});
+
+canvas.addEventListener('touchend',e=>{
+  if(!touchActive) return;
+  e.preventDefault();
+  const t=e.changedTouches[0];
+  if(duckHeld){ duckHeld=false; stopDuck(); }
+  if(t){
+    const dx=t.clientX-touchStartX, dy=t.clientY-touchStartY;
+    const d=Math.sqrt(dx*dx+dy*dy), dt=performance.now()-touchStartT;
+    // 小さく短いタップ＝ダブルタップでスキル発動
+    if(d<TAP_MOVE_PX && dt<TAP_TIME_MS){
+      const now2=performance.now();
+      const sinceLast=now2-lastTapT; lastTapT=now2;
+      if(sinceLast<DOUBLE_TAP_GAP_MS) activateSkill();
+    }
+  }
+  touchActive=false; touchId=null;
+},{passive:false});
+
+canvas.addEventListener('touchcancel',()=>{
+  touchActive=false; touchId=null;
+  if(duckHeld){ duckHeld=false; stopDuck(); }
+},{passive:false});
+
+// ══════════════════════════════════════════════════════════════
+//  入力インジケーター(配線が不安定でも押下が届いたか一目で分かるようにする)
+//  ──────────────────────────────────────────────────────────
+//  物理ボタンの配線接触不良で押しても反応しないことがあるため、
+//  「入力が実際にゲームに届いた瞬間」を光(ドットの発光)と音(短いビープ)で
+//  必ずフィードバックする。ゲームの状態(タイトル/選択/プレイ中)を問わず動作する。
+// ══════════════════════════════════════════════════════════════
+const INPUT_KEYS=[
+  {id:'LEFT',  label:'◀',color:'#00f3ff'},
+  {id:'RIGHT', label:'▶',color:'#00f3ff'},
+  {id:'JUMP',  label:'▲',color:'#ffd700'},
+  {id:'DUCK',  label:'▼',color:'#ff9900'},
+  {id:'SKILL', label:'★',color:'#bd00ff'},
+];
+const inputDotEls={};
+(function buildInputIndicator(){
+  const wrap=document.getElementById('input-indicator');
+  INPUT_KEYS.forEach(k=>{
+    const dot=document.createElement('div');
+    dot.textContent=k.label;
+    dot.style.cssText=`width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+      font-family:'Share Tech Mono',monospace;font-size:13px;font-weight:700;color:${k.color};
+      background:rgba(255,255,255,.06);border:1.5px solid ${k.color}55;transition:all .06s;`;
+    wrap.appendChild(dot);
+    inputDotEls[k.id]=dot;
+  });
+})();
+function flashInputIndicator(name){
+  const dot=inputDotEls[name];
+  if(!dot) return;
+  const k=INPUT_KEYS.find(x=>x.id===name);
+  dot.style.background=k.color;
+  dot.style.boxShadow=`0 0 14px ${k.color}`;
+  dot.style.transform='scale(1.25)';
+  clearTimeout(dot._t);
+  dot._t=setTimeout(()=>{ dot.style.background='rgba(255,255,255,.06)'; dot.style.boxShadow='none'; dot.style.transform='scale(1)'; },140);
+}
+function confirmInput(name){
+  initAudio();
+  flashInputIndicator(name);
+  playSfx('input');
+  lastInputT=performance.now(); // 改善5: 無操作タイムアウト用
+}
+// 改善5: 無操作でアトラクト(タイトル)へ自動復帰するための最終入力時刻
+let lastInputT=performance.now();
+function markInput(){ lastInputT=performance.now(); }
+
+// ══════════════════════════════════════════════════════════════
+//  KEYBOARD INPUT
+// ══════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════
+//  KEYBOARD INPUT (ジョイスティックはArrowキー+Spaceとして届く前提)
+//  ──────────────────────────────────────────────────────────
+//  プレイ中: 上下左右=レーン移動/ジャンプ/しゃがみ、クリック(Space)=SKILL
+//  メニュー中: 左右=キャラ切替(キャラ選択画面のみ)、クリック(Space)=そのまま
+//  画面の「決定」ボタンを押したことにする(マウス/タッチが無くても操作できるように)
+// ══════════════════════════════════════════════════════════════
+function isScreenVisible(id){
+  const el=document.getElementById(id);
+  return !!el && !el.classList.contains('hid');
+}
+const keysDown=new Set();
+document.addEventListener('keydown',e=>{
+  if(keysDown.has(e.key)) return; keysDown.add(e.key);
+  const isLeft=e.key==='ArrowLeft'||e.key==='a'||e.key==='A';
+  const isRight=e.key==='ArrowRight'||e.key==='d'||e.key==='D';
+  const isUp=e.key==='ArrowUp'||e.key==='w'||e.key==='W';
+  const isDown=e.key==='ArrowDown'||e.key==='s'||e.key==='S';
+  const isClick=e.key===' ';
+
+  if(gstate==='playing'){
+    if(isLeft){e.preventDefault();confirmInput('LEFT');moveLane(-1);}
+    if(isRight){e.preventDefault();confirmInput('RIGHT');moveLane(1);}
+    if(isUp){e.preventDefault();confirmInput('JUMP');doJump();}
+    if(isDown){e.preventDefault();confirmInput('DUCK');startDuck();}
+    if(isClick){e.preventDefault();confirmInput('SKILL');activateSkill();}
+    return;
+  }
+
+  // メニュー画面: キャラ選択画面のみ左右でキャラ切替を許可
+  if(isScreenVisible('sel-screen')){
+    if(isLeft){e.preventDefault();confirmInput('LEFT');selectChar((selIdx-1+CHARS.length)%CHARS.length);}
+    if(isRight){e.preventDefault();confirmInput('RIGHT');selectChar((selIdx+1)%CHARS.length);}
+    if(isClick){e.preventDefault();confirmInput('SKILL');document.getElementById('go-btn').click();}
+    return;
+  }
+  if(isScreenVisible('gacha-screen')){
+    if(isClick){e.preventDefault();confirmInput('SKILL');document.getElementById('btn-pull1').click();}
+    return;
+  }
+  if(isScreenVisible('gover')){
+    if(isClick){e.preventDefault();confirmInput('SKILL');document.getElementById('btn-retry').click();}
+    return;
+  }
+  if(isScreenVisible('title-menu')){
+    if(isClick){e.preventDefault();confirmInput('SKILL');document.getElementById('btn-start').click();}
+    return;
+  }
+});
+document.addEventListener('keyup',e=>{ keysDown.delete(e.key); if(e.key==='ArrowDown'||e.key==='s'||e.key==='S') stopDuck(); });
+
+// ══════════════════════════════════════════════════════════════
+//  CHARACTER SELECT PREVIEW
+// ══════════════════════════════════════════════════════════════
+const pvC=document.getElementById('pv-c');
+const pvR=new THREE.WebGLRenderer({canvas:pvC,antialias:true,alpha:true});
+pvR.setPixelRatio(1); pvR.setSize(260,260); pvR.setClearColor(0,0); // Pi4向け軽量化
+const pvSc=new THREE.Scene(), pvCam=new THREE.PerspectiveCamera(42,1,0.1,20);
+pvCam.position.set(0,0.5,3.8); pvCam.lookAt(0,0,0);
+pvSc.add(new THREE.AmbientLight(0x334488,2));
+const pvL2=new THREE.DirectionalLight(0xffffff,1.8); pvL2.position.set(1,2,3); pvSc.add(pvL2);
+const pvL3=new THREE.PointLight(0x00f3ff,2,10); pvL3.position.set(-1,1,2); pvSc.add(pvL3);
+let pvMesh=null, pvGl=null;
+function buildPvMesh(p){
+  if(pvMesh){pvSc.remove(pvMesh);pvMesh.geometry.dispose();pvMesh.material.dispose();}
+  if(pvGl){pvSc.remove(pvGl);pvGl.geometry.dispose();pvGl.material.dispose();}
+  let g; switch(p.geo){
+    case 'Sphere':   g=new THREE.SphereGeometry(0.95,36,36); break;
+    case 'Box':      g=new THREE.BoxGeometry(1.45,1.45,1.45); break;
+    case 'Cylinder': g=new THREE.CylinderGeometry(0.65,0.65,1.4,24); break;
+  }
+  pvMesh=new THREE.Mesh(g,new THREE.MeshPhongMaterial({color:p.color,emissive:p.color,emissiveIntensity:0.5,specular:0xffffff,shininess:120})); pvSc.add(pvMesh);
+  pvGl=new THREE.Mesh(new THREE.SphereGeometry(1.3,10,10),new THREE.MeshBasicMaterial({color:p.color,transparent:true,opacity:0.09})); pvSc.add(pvGl);
+}
+(function pvLoop(){ requestAnimationFrame(pvLoop);
+  // Pi4向け軽量化: キャラ選択画面が非表示の間(プレイ中など)はこのWebGLコンテキストの描画を止める
+  const selScreen=document.getElementById('sel-screen');
+  if(!selScreen||selScreen.classList.contains('hid')) return;
+  if(pvMesh){pvMesh.rotation.y+=0.016;pvMesh.position.y=Math.sin(Date.now()*.0018)*.07;}
+  if(pvGl) pvGl.rotation.y-=0.01;
+  pvR.render(pvSc,pvCam);
+})();
+
+// ══════════════════════════════════════════════════════════════
+//  GACHA PREVIEW
+// ══════════════════════════════════════════════════════════════
+const gachC=document.getElementById('gacha-preview-c');
+const gachR=new THREE.WebGLRenderer({canvas:gachC,antialias:true,alpha:true});
+gachR.setPixelRatio(1); gachR.setSize(280,280); gachR.setClearColor(0,0); // Pi4向け軽量化
+const gachSc=new THREE.Scene(), gachCam=new THREE.PerspectiveCamera(42,1,0.1,20);
+gachCam.position.set(0,0.5,4); gachCam.lookAt(0,0,0);
+gachSc.add(new THREE.AmbientLight(0x334488,2));
+const gachL=new THREE.DirectionalLight(0xffffff,1.8); gachL.position.set(1,2,3); gachSc.add(gachL);
+const gachL2=new THREE.PointLight(0xffd700,2,10); gachL2.position.set(-1,1,2); gachSc.add(gachL2);
+let gachMesh=null;
+
+function buildPartMesh(part){
+  if(gachMesh){gachSc.remove(gachMesh);gachMesh.geometry.dispose();gachMesh.material.dispose();}
+  let geo;
+  switch(part.id){
+    case 'resistor':   geo=new THREE.CylinderGeometry(0.25,0.25,1.2,12); break;
+    case 'capacitor':  geo=new THREE.CylinderGeometry(0.5,0.5,0.8,16); break;
+    case 'ic_chip':    geo=new THREE.BoxGeometry(1.4,0.2,1.0); break;
+    case 'led':        geo=new THREE.ConeGeometry(0.4,0.8,16); break;
+    case 'transistor': geo=new THREE.CylinderGeometry(0.45,0.3,1.0,3); break;
+    case 'coil':       geo=new THREE.TorusGeometry(0.6,0.2,8,20); break;
+    case 'diode':      geo=new THREE.CylinderGeometry(0.3,0.3,1.0,12); break;
+    case 'cpu':        geo=new THREE.BoxGeometry(1.2,0.18,1.2); break;
+    default:           geo=new THREE.BoxGeometry(1,1,1);
+  }
+  const mat=new THREE.MeshPhongMaterial({color:part.color,emissive:part.color,emissiveIntensity:0.5,specular:0xffffff,shininess:120,wireframe:part.id==='ic_chip'||part.id==='cpu'});
+  gachMesh=new THREE.Mesh(geo,mat); gachSc.add(gachMesh);
+}
+(function gachLoop(){ requestAnimationFrame(gachLoop);
+  // Pi4向け軽量化: ガチャ画面が非表示の間はこのWebGLコンテキストの描画を止める
+  const gachaScreen=document.getElementById('gacha-screen');
+  if(!gachaScreen||gachaScreen.classList.contains('hid')) return;
+  if(gachMesh){gachMesh.rotation.y+=0.022;gachMesh.rotation.x+=0.008;gachMesh.position.y=Math.sin(Date.now()*.0016)*.06;}
+  gachR.render(gachSc,gachCam);
+})();
+
+function buildCollectionGrid(){
+  const grid=document.getElementById('col-grid'); grid.innerHTML='';
+  PARTS.forEach(p=>{
+    const owned=SD.unlockedItems.includes(p.id);
+    const hex='#'+p.color.toString(16).padStart(6,'0');
+    const el=document.createElement('div');
+    el.className='col-item rarity-'+p.rarity+(owned?' owned':' locked');
+    if(owned) el.style.setProperty('--ci',hex);
+    el.innerHTML=`<span>${p.icon}</span><span class="rarity-star">${'★'.repeat(p.rarity)}</span>`;
+    el.title=p.name+(owned?'':' (未取得)')+' / レア度'+p.rarity;
+    el.addEventListener('click',()=>{ if(owned) buildPartMesh(p); });
+    el.addEventListener('touchend',e=>{ e.preventDefault(); if(owned) buildPartMesh(p); });
+    grid.appendChild(el);
+  });
+  const compEl=document.getElementById('comp-val');
+  if(compEl) compEl.textContent=calcComp();
+}
+
+function pullGacha(n=1){
+  const cost=n===1?50:450;
+  if(SD.totalCoins<cost){ document.getElementById('gacha-result').textContent='コインが足りない！'; return; }
+  SD.totalCoins-=cost;
+  let lastPart=null, gotRare=false;
+  for(let i=0;i<n;i++){
+    // レアリティ抽選: rarity3=5%, rarity2=20%, rarity1=75%
+    const r=Math.random();
+    const pool=r<0.05?PARTS.filter(p=>p.rarity===3):r<0.25?PARTS.filter(p=>p.rarity>=2):PARTS.filter(p=>p.rarity===1);
+    const part=pool[Math.floor(Math.random()*pool.length)];
+    if(!SD.unlockedItems.includes(part.id)) SD.unlockedItems.push(part.id);
+    lastPart=part;
+    if(part.rarity>=2) gotRare=true;
+  }
+  saveSave(); updateCoinsUI();
+
+  // 演出: 結果を即表示せず、一瞬「抽選中」で溜めてからレアリティに応じた見せ方で公開する
+  const resultEl=document.getElementById('gacha-result');
+  resultEl.style.color='rgba(200,220,255,.6)';
+  resultEl.textContent='抽選中...';
+  playSfx('lane');
+  const revealDelay=gotRare?900:400;
+  setTimeout(()=>{
+    if(gotRare){ resultEl.style.color='#ffd700'; resultEl.style.textShadow='0 0 18px #ffd700'; }
+    else { resultEl.style.color='#ffd700'; resultEl.style.textShadow='0 0 12px #ffd700'; }
+    resultEl.textContent=n===1?`✨ ${lastPart.name}！`:`✨ ${n}回引いた！`;
+    buildPartMesh(lastPart);
+    buildCollectionGrid();
+    playSfx(gotRare?'hyper':'coin');
+  },revealDelay);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  CHARACTER SELECT UI
+// ══════════════════════════════════════════════════════════════
+function buildCharUI(){
+  const row=document.getElementById('char-row'); row.innerHTML='';
+  CHARS.forEach((c,i)=>{
+    const hex='#'+c.color.toString(16).padStart(6,'0');
+    const el=document.createElement('div');
+    el.className='cc'+(i===selIdx?' sel2':''); el.style.setProperty('--cc',hex);
+    el.innerHTML=`<div class="cc-ico">${c.icon}</div><div class="cc-nm">${c.name}</div><div class="cc-sk">${c.skill}</div><div class="cc-tag">${c.tag||''}</div><div class="cc-ds">${c.desc}</div>`;
+    el.addEventListener('click',()=>selectChar(i));
+    el.addEventListener('touchend',e=>{e.preventDefault();selectChar(i);});
+    row.appendChild(el);
+  });
+}
+function selectChar(i){
+  selIdx=i; selChar=CHARS[i]; buildCharUI(); buildPvMesh(selChar);
+  document.getElementById('char-desc').textContent=selChar.desc;
+  const tagEl=document.getElementById('char-tag');
+  if(tagEl){
+    const hex='#'+selChar.color.toString(16).padStart(6,'0');
+    tagEl.textContent=selChar.tag||'';
+    tagEl.style.cssText=`display:inline-block;font-family:'Share Tech Mono',monospace;font-size:10px;
+      letter-spacing:1px;color:${hex};border:1px solid ${hex}66;background:${hex}14;
+      border-radius:99px;padding:3px 12px;margin-bottom:6px;`;
+  }
+  // スペックバー描画: セグメント区切り+数値付きの「アーケード計器」風デザイン
+  const specEl=document.getElementById('char-specs');
+  if(specEl&&selChar.specs){
+    const s=selChar.specs;
+    const hex='#'+selChar.color.toString(16).padStart(6,'0');
+    const segs=(v,max=5)=>Array.from({length:max},(_,i)=>
+      `<div style="flex:1;height:10px;border-radius:1px;background:${i<v?hex:'rgba(255,255,255,.08)'};
+        box-shadow:${i<v?`0 0 7px ${hex}`:'none'};border:1px solid ${i<v?hex+'aa':'rgba(255,255,255,.12)'};
+        transition:all .15s;"></div>`).join('');
+    const row=(label,v,max=5)=>`
+      <div style="display:grid;grid-template-columns:44px 1fr 14px;gap:8px;align-items:center;">
+        <span style="text-align:right;">${label}</span>
+        <div style="display:flex;gap:2px;">${segs(v,max)}</div>
+        <span style="color:${hex};font-weight:700;">${v}</span>
+      </div>`;
+    specEl.innerHTML=`
+      <div style="font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:1px;
+        color:rgba(200,220,255,.65);display:flex;flex-direction:column;gap:5px;max-width:230px;
+        margin:0 auto;padding:8px 10px;border:1px solid ${hex}33;border-radius:5px;
+        background:linear-gradient(180deg,rgba(255,255,255,.03),transparent);">
+        ${row('SPEED',s.speed)}
+        ${row('POWER',s.power)}
+        ${row('RANGE',s.range)}
+        ${row('CD',s.cd)}
+      </div>`;
+  }
+  renderTitleChips();
+}
+// 改善10: 獲得済み称号をチップで表示し、タップで装備を切り替える
+function renderTitleChips(){
+  const wrap=document.getElementById('title-chips');
+  if(!wrap) return;
+  const owned=TITLE_DEFS.filter(t=>SD.unlockedTitles.includes(t.id));
+  if(owned.length===0){
+    wrap.innerHTML='<span style="font-family:\'Share Tech Mono\',monospace;font-size:9px;color:rgba(200,220,255,.35);">まだ称号なし(プレイで獲得)</span>';
+    return;
+  }
+  const mk=(label,active)=>`<button class="title-chip${active?' active':''}" data-title="${label}">${label}</button>`;
+  // 「なし」+獲得済み
+  wrap.innerHTML=mk('なし',!SD.equippedTitle||SD.equippedTitle==='なし')
+    +owned.map(t=>mk(t.label,SD.equippedTitle===t.label)).join('');
+  wrap.querySelectorAll('.title-chip').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const v=btn.getAttribute('data-title');
+      SD.equippedTitle=(v==='なし')?'':v;
+      saveSave();
+      renderTitleChips();
+    });
+  });
+}
+buildCharUI(); selectChar(0);
+
+// ══════════════════════════════════════════════════════════════
+//  SCREEN NAVIGATION
+// ══════════════════════════════════════════════════════════════
+function showScreen(id){
+  ['title-menu','sel-screen','gacha-screen','gover'].forEach(s=>{ document.getElementById(s).classList.add('hid'); });
+  if(id) document.getElementById(id).classList.remove('hid');
+}
+
+document.getElementById('btn-start').addEventListener('click',()=>{
+  initAudio(); showScreen('sel-screen'); buildCharUI(); selectChar(selIdx);
+  const inp=document.getElementById('name-input'); if(inp&&SD.playerName) inp.value=SD.playerName;
+});
+document.getElementById('btn-gacha').addEventListener('click',()=>{
+  initAudio(); showScreen('gacha-screen'); buildCollectionGrid(); buildPartMesh(PARTS[0]); updateCoinsUI();
+});
+document.getElementById('btn-rank').addEventListener('click',()=>{
+  initAudio();
+  renderActiveRank();
+  if(GAS_ENABLED) fetchGlobalRanks(); // 開くたび最新の共有ランキングを取りに行く
+  showScreen('title-menu');
+});
+// ランキングのタブ切り替え(この筐体 / みんな)
+(function setupRankTabs(){
+  const tl=document.getElementById('tab-local'), tg=document.getElementById('tab-global');
+  if(!tl||!tg) return;
+  // 共有が未設定なら「みんな」タブ自体を隠す
+  if(!GAS_ENABLED){ tg.style.display='none'; document.getElementById('rank-tabs').style.display='none'; }
+  tl.addEventListener('click',()=>{ rankView='local'; tl.classList.add('active'); tg.classList.remove('active'); renderActiveRank(); });
+  tg.addEventListener('click',()=>{ rankView='global'; tg.classList.add('active'); tl.classList.remove('active'); renderActiveRank(); fetchGlobalRanks(); });
+})();
+// データ初期化(スタッフ用・誤操作防止に確認あり)
+document.getElementById('btn-wipe').addEventListener('click',()=>{
+  if(confirm('全データ(コイン・図鑑・称号・ハイスコア・ランキング)を消去します。よろしいですか？')){
+    wipeSave();
+    renderRankBoard(persistentRanks);
+    updateCoinsUI();
+    const inp=document.getElementById('name-input'); if(inp) inp.value='';
+    alert('データを初期化しました。');
+  }
+});
+document.getElementById('btn-gacha-back').addEventListener('click',()=>{ showScreen('title-menu'); });
+document.getElementById('btn-sel-back').addEventListener('click',()=>{ showScreen('title-menu'); });
+document.getElementById('go-btn').addEventListener('click',()=>{
+  savePlayerName();
+  showScreen(null); resetGame();
+});
+document.getElementById('btn-retry').addEventListener('click',()=>{
+  initAudio(); showScreen(null); resetGame();
+});
+document.getElementById('btn-sel').addEventListener('click',()=>{
+  gstate='select';
+  obsPool.forEach(g=>deactivateObs(g)); itemPool.forEach(m=>deactivateItem(m));
+  if(playerGroup){scene.remove(playerGroup);playerGroup=null;}
+  showScreen('sel-screen'); buildCharUI(); selectChar(selIdx);
+  // 改善10: セレクト画面に戻ったら名前入力欄に補完
+  const inp=document.getElementById('name-input'); if(inp&&SD.playerName) inp.value=SD.playerName;
+});
+document.getElementById('btn-pull1').addEventListener('click',()=>pullGacha(1));
+document.getElementById('btn-pull10').addEventListener('click',()=>pullGacha(10));
+// 改善14: ゲームオーバーからタイトルへ戻る
+document.getElementById('btn-go-title').addEventListener('click',()=>{
+  document.getElementById('gover').classList.add('hid');
+  gstate='title';
+  obsPool.forEach(g=>deactivateObs(g)); itemPool.forEach(m=>deactivateItem(m));
+  if(playerGroup){scene.remove(playerGroup);playerGroup=null;}
+  showScreen('title-menu');
+});
+
+// ══════════════════════════════════════════════════════════════
+//  PAUSE(アーケードでの一時中断用)
+// ══════════════════════════════════════════════════════════════
+let _pauseSpeedBackup=0;
+function pauseGame(){
+  if(gstate!=='playing') return;
+  gstate='paused';
+  document.getElementById('pause-menu').classList.remove('hid');
+  stopBeatLoop();
+  if(engGain&&audioReady) engGain.gain.setTargetAtTime(0,audioCtx.currentTime,0.1);
+}
+function resumeGame(){
+  if(gstate!=='paused') return;
+  document.getElementById('pause-menu').classList.add('hid');
+  gstate='playing'; lastTS=null;
+  startBeatLoop();
+}
+function quitToTitle(){
+  gstate='title';
+  document.getElementById('pause-menu').classList.add('hid');
+  stopBeatLoop();
+  obsPool.forEach(g=>deactivateObs(g)); itemPool.forEach(m=>deactivateItem(m));
+  if(playerGroup){scene.remove(playerGroup);playerGroup=null;}
+  document.getElementById('hud').style.display='none';
+  document.getElementById('coins-hud').style.display='none';
+  document.getElementById('btn-pause').style.display='none';
+  showScreen('title-menu');
+}
+document.getElementById('btn-pause').addEventListener('click',pauseGame);
+document.getElementById('btn-resume').addEventListener('click',resumeGame);
+document.getElementById('btn-pause-quit').addEventListener('click',quitToTitle);
+// 改善5: ミュートトグル
+document.getElementById('btn-mute').addEventListener('click',()=>{
+  initAudio();
+  isMuted=!isMuted;
+  applyMasterVolume();
+  const b=document.getElementById('btn-mute');
+  b.textContent=isMuted?'🔇':'🔊';
+  b.classList.toggle('muted',isMuted);
+});
+
+// 改善5: 無操作タイムアウト(文化祭運用: 客が離れたら自動でタイトルに戻す)
+// ゲームオーバー画面のまま90秒操作が無ければタイトルへ。何か操作があればタイマーはリセット。
+const IDLE_TIMEOUT_MS=90000;
+let idleTimer=null;
+function armIdleTimer(){
+  clearTimeout(idleTimer);
+  idleTimer=setTimeout(()=>{
+    // ゲームオーバー画面が出たまま放置された場合のみ発動
+    if(!document.getElementById('gover').classList.contains('hid')){
+      document.getElementById('gover').classList.add('hid');
+      gstate='title';
+      obsPool.forEach(g=>deactivateObs(g)); itemPool.forEach(m=>deactivateItem(m));
+      if(playerGroup){scene.remove(playerGroup);playerGroup=null;}
+      showScreen('title-menu');
+    }
+  },IDLE_TIMEOUT_MS);
+}
+['pointerdown','keydown','touchstart'].forEach(ev=>{
+  document.addEventListener(ev,()=>{ armIdleTimer(); },{passive:true});
+});
+armIdleTimer();
+
+// 改善10: タイトル画面での初期化（UI更新）
+loadSave();          // 保存済みのコイン/図鑑/称号/ハイスコアを復元
+loadRanks();         // 保存済みランキングを復元
+renderRankBoard(persistentRanks);
+updateCoinsUI();
+showScreen('title-menu');
+
+// ══════════════════════════════════════════════════════════════
+//  改善5: 無操作タイムアウト(アトラクト復帰)
+//  文化祭で客が離れて放置された時、自動でタイトルに戻して次の人が
+//  すぐ遊べる状態にする。プレイ中に誤発動しないよう時間は長めに設定。
+// ══════════════════════════════════════════════════════════════
+window.addEventListener('pointerdown',markInput,true);
+window.addEventListener('keydown',markInput,true);
+function checkIdleTimeout(){
+  const idle=performance.now()-lastInputT;
+  // タイトル画面(title-menu表示中)では復帰不要
+  const onTitle=!document.getElementById('title-menu').classList.contains('hid');
+  if(onTitle){ return; }
+  // プレイ中は45秒、メニュー/ゲームオーバー/ポーズ等は90秒で復帰
+  const limit = (gstate==='playing') ? 45000 : 90000;
+  if(idle>limit){
+    lastInputT=performance.now();
+    // 進行中のゲームを畳んでタイトルへ
+    if(gstate==='playing'||gstate==='paused'||gstate==='ready'){
+      gstate='title';
+      stopBeatLoop();
+      obsPool.forEach(g=>deactivateObs(g)); itemPool.forEach(m=>deactivateItem(m));
+      if(playerGroup){scene.remove(playerGroup);playerGroup=null;}
+      document.getElementById('hud').style.display='none';
+      document.getElementById('coins-hud').style.display='none';
+      document.getElementById('btn-pause').style.display='none';
+      const pm=document.getElementById('pause-menu'); if(pm) pm.classList.add('hid');
+      const cd=document.getElementById('countdown'); if(cd){ cd.classList.remove('show'); cd.innerHTML=''; }
+    }
+    document.getElementById('gover').classList.add('hid');
+    showScreen('title-menu');
+  }
+}
+setInterval(checkIdleTimeout,2000);
+
+// デバッグ: コンソールにセッション内データを出力（開発時確認用・保存は一切していない）
+console.log('[CR6] SessionData(no-save):', JSON.stringify({coins:SD.totalCoins,items:SD.unlockedItems.length,titles:SD.unlockedTitles}));
+</script>
+</body>
+</html>
