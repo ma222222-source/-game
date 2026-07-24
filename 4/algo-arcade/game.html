@@ -164,13 +164,59 @@
     .sys-card:hover {
       transform: translateY(-3px);
       box-shadow: 0 10px 28px var(--card-shadow, rgba(0,229,255,0.25));
+      border-color: rgba(255,255,255,0.5);
     }
+    .sys-card:hover .sys-card-icon { transform: scale(1.15) rotate(-4deg); }
   }
+  .sys-card-icon { transition: transform .2s ease; }
 
   .sys-card.c-cannon { border-color: rgba(0,229,255,0.3); --card-glow: rgba(0,229,255,0.12); --card-shadow: rgba(0,229,255,0.3); }
   .sys-card.c-battle { border-color: rgba(157,78,221,0.32); --card-glow: rgba(157,78,221,0.12); --card-shadow: rgba(157,78,221,0.32); }
   .sys-card.c-math   { border-color: rgba(96,165,250,0.32); --card-glow: rgba(96,165,250,0.12); --card-shadow: rgba(96,165,250,0.32); }
   .sys-card.c-merge  { border-color: rgba(255,109,0,0.34);  --card-glow: rgba(255,109,0,0.14);  --card-shadow: rgba(255,109,0,0.34); }
+
+  /* 改善6: 前回遊んだモジュールのハイライト */
+  .sys-card.last-played { border-width: 2px; box-shadow: 0 0 0 1px rgba(255,255,255,.15), 0 8px 24px var(--card-shadow); }
+  .sys-card.last-played::after {
+    content: '前回プレイ'; position: absolute; top: 8px; right: 10px;
+    font-family: 'Share Tech Mono', monospace; font-size: 8px; letter-spacing: 1px;
+    color: rgba(255,255,255,.65); background: rgba(255,255,255,.08);
+    border: 1px solid rgba(255,255,255,.25); border-radius: 3px; padding: 2px 6px;
+  }
+  /* 改善5: NEWバッジ(初見の目移りを支援) */
+  .sys-card-tag { position: relative; }
+  .new-badge {
+    display: inline-block; margin-left: 6px; font-size: 8px; letter-spacing: 1px;
+    color: #0a0c12; background: #ffd700; border-radius: 3px; padding: 1px 5px;
+    font-weight: 900; vertical-align: middle;
+    animation: newBadgePulse 1.6s ease-in-out infinite;
+  }
+  @keyframes newBadgePulse { 0%,100%{opacity:1;} 50%{opacity:.55;} }
+
+  /* 改善8: 確認モーダル(ゲーム世界観に合わせたデザイン、ブラウザ標準confirmの代替) */
+  #algo-confirm-modal { position: fixed; inset: 0; z-index: 500; display: none;
+    align-items: center; justify-content: center; background: rgba(2,4,10,.8); backdrop-filter: blur(6px); }
+  #algo-confirm-modal.show { display: flex; }
+  .ac-box { background: linear-gradient(180deg, rgba(6,15,30,.96), rgba(3,8,18,.98));
+    border: 1.5px solid rgba(0,229,255,.4); border-radius: 8px; padding: 22px 20px; max-width: 300px;
+    text-align: center; box-shadow: 0 0 40px rgba(0,229,255,.15); }
+  .ac-msg { font-family: 'Share Tech Mono', monospace; font-size: 12px; line-height: 1.8; color: #e0f7ff; margin-bottom: 16px; }
+  .ac-row { display: flex; gap: 10px; justify-content: center; }
+  .ac-row button { font-family: 'Share Tech Mono', monospace; font-size: 11px; letter-spacing: 1px;
+    padding: 8px 16px; border-radius: 5px; cursor: pointer; }
+  #ac-yes { background: rgba(255,68,102,.15); color: #ff6688; border: 2px solid rgba(255,68,102,.5); }
+  #ac-no  { background: rgba(200,240,255,.08); color: #fff; border: 2px solid rgba(200,240,255,.3); }
+
+  /* 改善10: 起動時のブートスクリーン(CYBER RUNNER側と統一感) */
+  #algo-boot { position: fixed; inset: 0; z-index: 999; background: #05070d; display: flex;
+    flex-direction: column; align-items: center; justify-content: center; gap: 16px;
+    transition: opacity .4s ease; }
+  #algo-boot.hid { opacity: 0; pointer-events: none; }
+  .algo-boot-logo { font-family: 'Orbitron', monospace; font-size: clamp(18px,5vw,28px); font-weight: 900;
+    letter-spacing: 4px; color: #00e5ff; text-shadow: 0 0 20px #00e5ff; }
+  .algo-boot-bar-wrap { width: 160px; height: 3px; background: rgba(0,229,255,.12); border-radius: 2px; overflow: hidden; }
+  .algo-boot-bar { height: 100%; width: 30%; background: linear-gradient(90deg,#00e5ff,#ff6d00); animation: algoBootSlide 1s ease-in-out infinite; }
+  @keyframes algoBootSlide { 0%{transform:translateX(-100%);} 100%{transform:translateX(400%);} }
 
   .sys-card-tag {
     position: relative;
@@ -231,7 +277,21 @@
   }
   .module-container.active {
     display: block;
+    animation: moduleFadeIn .3s ease;
   }
+  @keyframes moduleFadeIn {
+    from { opacity:0; transform:scale(.985); }
+    to   { opacity:1; transform:scale(1); }
+  }
+  #root-menu { animation: moduleFadeIn .3s ease; }
+  /* 改善9: キーボード操作時のフォーカス表示(マウス/タッチ時は出ない) */
+  button:focus-visible, .sys-card:focus-visible, a:focus-visible {
+    outline: 2px solid #00e5ff; outline-offset: 2px;
+    box-shadow: 0 0 12px rgba(0,229,255,.6);
+  }
+  /* 改善2: 全ボタン共通の押し込みフィードバック(sys-cardは既存定義を活かす) */
+  button, .exit-to-root-btn { transition: transform .1s ease, filter .1s ease; }
+  button:active, .exit-to-root-btn:active { transform: scale(.94); filter: brightness(1.15); }
 
   /* モジュール内に共通の「メニューへ戻る」フローティングボタン */
   .exit-to-root-btn {
@@ -255,6 +315,11 @@
 </style>
 </head>
 <body>
+
+<div id="algo-boot">
+  <div class="algo-boot-logo">ALGO ARCADE</div>
+  <div class="algo-boot-bar-wrap"><div class="algo-boot-bar"></div></div>
+</div>
 
 <!-- ════════════════════════════════════════════════
      ROOT MENU
@@ -294,7 +359,7 @@
 
     <div class="sys-card c-merge" onclick="launchSelectedModule('merge')">
       <div>
-        <div class="sys-card-tag">MODULE 04 — MERGE SORT</div>
+        <div class="sys-card-tag">MODULE 04 — MERGE SORT<span class="new-badge">NEW</span></div>
         <div class="sys-card-icon">🗼</div>
         <div class="sys-card-name">ALGORITHM<br>MERGE TOWER</div>
       </div>
@@ -303,11 +368,8 @@
   </div>
 
   <div class="root-footer">SELECT A MODULE TO BEGIN</div>
-  <a href="../index.html" id="back-to-hub" style="
-    display:inline-block;margin-top:22px;font-family:'Share Tech Mono',monospace;
-    font-size:10px;letter-spacing:2px;color:rgba(0,229,255,.55);text-decoration:none;
-    border:1px solid rgba(0,229,255,.25);border-radius:4px;padding:6px 16px;
-    background:rgba(0,229,255,.04);transition:all .15s;">← アーケード選択に戻る</a>
+  <a href="../index.html" id="back-to-hub" class="exit-to-root-btn" style="
+    text-decoration:none;display:flex;align-items:center;">← アーケード選択</a>
 </div>
 
 <!-- ────────────────────────────────────────────
@@ -1875,6 +1937,7 @@ body{
      ──────────────────────────────────────────── -->
 <div id="module-math" class="module-container" style="min-height:100vh;background:#0a0c12;position:relative;z-index:2">
   <button class="exit-to-root-btn" onclick="exitToRoot()" style="z-index:300">← MENU</button>
+  <div id="module-math-inner"></div>
 </div>
 
 <!-- ────────────────────────────────────────────
@@ -1883,6 +1946,7 @@ body{
      ──────────────────────────────────────────── -->
 <div id="module-merge" class="module-container" style="min-height:100vh;position:relative;z-index:2">
   <button class="exit-to-root-btn" onclick="exitToRoot()" style="z-index:300">← MENU</button>
+  <div id="module-merge-inner"></div>
 </div>
 
 <!-- ════════════════════════════════════════════
@@ -1892,11 +1956,55 @@ body{
 let _activeGame = null;
 let _activeModuleId = null;
 
+// 改善4: モジュール名⇔ブラウザタブタイトルの対応表
+const MODULE_TITLES = {
+  cannon: 'SPEED SORT CANNON',
+  battle: 'SORT CARD BATTLE',
+  math:   'MENTAL MATH',
+  merge:  'ALGORITHM MERGE TOWER',
+};
+const HUB_TITLE = document.title;
+
+// 改善3: メニュー操作用の軽いクリック音(Web Audio、ファイル不要)
+let _uiAudioCtx = null;
+function playUiClick(kind){
+  try{
+    if(!_uiAudioCtx) _uiAudioCtx = new (window.AudioContext||window.webkitAudioContext)();
+    if(_uiAudioCtx.state==='suspended') _uiAudioCtx.resume();
+    const ctx=_uiAudioCtx, o=ctx.createOscillator(), g=ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    const t=ctx.currentTime;
+    if(kind==='back'){ o.type='sine'; o.frequency.setValueAtTime(720,t); o.frequency.exponentialRampToValueAtTime(480,t+0.09); }
+    else { o.type='sine'; o.frequency.setValueAtTime(880,t); o.frequency.exponentialRampToValueAtTime(1180,t+0.05); }
+    g.gain.setValueAtTime(0.08,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.1);
+    o.start(); o.stop(t+0.13);
+  }catch(e){ /* audio未対応環境は無視 */ }
+}
+// 改善1: root-menu再表示時にフェードを再生させる(CSSアニメーションの再トリガー)
+function replayFade(el){
+  if(!el) return;
+  el.style.animation='none'; void el.offsetWidth; el.style.animation='';
+}
+// 改善6: 前回遊んだモジュールをlocalStorageに記憶し、root-menuでハイライトする
+const LAST_MODULE_KEY='algoarcade_last_module_v1';
+function markLastModule(name){
+  try{ localStorage.setItem(LAST_MODULE_KEY,name); }catch(e){}
+}
+function highlightLastModule(){
+  let last=null;
+  try{ last=localStorage.getItem(LAST_MODULE_KEY); }catch(e){}
+  document.querySelectorAll('.sys-card').forEach(c=>c.classList.remove('last-played'));
+  if(!last) return;
+  const card=document.querySelector('.sys-card.c-'+last);
+  if(card) card.classList.add('last-played');
+}
+
 function launchSelectedModule(name) {
   if (_activeGame && typeof _activeGame.destroy === 'function') {
     _activeGame.destroy();
   }
   _activeGame = null;
+  playUiClick('go');
   document.getElementById('root-menu').style.display = 'none';
   ['cannon','battle','math','merge'].forEach(id => {
     const el = document.getElementById('module-' + id);
@@ -1905,7 +2013,10 @@ function launchSelectedModule(name) {
   const target = document.getElementById('module-' + name);
   if (!target) return;
   target.classList.add('active');
+  replayFade(target); // 改善1
   _activeModuleId = name;
+  markLastModule(name); // 改善6
+  document.title = (MODULE_TITLES[name]||'ALGO ARCADE') + ' — ' + HUB_TITLE; // 改善4
   const gameMap = { cannon: window.CannonGame, battle: window.BattleGame,
                     math: window.MathGame, merge: window.MergeGame };
   const game = gameMap[name];
@@ -1915,7 +2026,24 @@ function launchSelectedModule(name) {
   }
 }
 
-function exitToRoot() {
+// 改善8: プレイ中(明確に「進行中」と判断できる状態)に← MENUを押した場合、
+// 誤操作での進行状況ロストを防ぐため確認を挟む。
+// battleモジュールは既存のscreen表示状態から安全に判定できるためガード対象にする。
+// 他モジュールは内部状態を外部から安全に判定できないため、従来通り即終了のままにする
+// (誤って「プレイ中ではない」と判定してしまう方が実害が大きいため)。
+function isMidGameplayGuard(){
+  if(_activeModuleId==='battle'){
+    const gs = document.getElementById('battle-game-screen');
+    return !!(gs && gs.style.display !== 'none');
+  }
+  return false;
+}
+function exitToRoot(skipConfirm) {
+  if (!skipConfirm && isMidGameplayGuard()) {
+    showAlgoConfirm('プレイ中のスコアは失われます。メニューに戻りますか？', () => exitToRoot(true));
+    return;
+  }
+  playUiClick('back');
   if (_activeGame && typeof _activeGame.destroy === 'function') {
     _activeGame.destroy();
   }
@@ -1924,20 +2052,44 @@ function exitToRoot() {
     const el = document.getElementById('module-' + id);
     if (el) el.classList.remove('active');
   });
-  document.getElementById('root-menu').style.display = '';
+  const rm=document.getElementById('root-menu');
+  rm.style.display = '';
+  replayFade(rm); // 改善1
+  highlightLastModule(); // 改善6
+  document.title = HUB_TITLE; // 改善4
   _activeModuleId = null;
+}
+// 改善8: ALGO ARCADE用の軽量確認モーダル(CYBER RUNNER側と統一感のあるデザイン)
+function showAlgoConfirm(message,onYes){
+  let m=document.getElementById('algo-confirm-modal');
+  if(!m){
+    m=document.createElement('div'); m.id='algo-confirm-modal';
+    m.innerHTML=`<div class="ac-box"><div class="ac-msg"></div>
+      <div class="ac-row"><button id="ac-yes">はい</button><button id="ac-no">キャンセル</button></div></div>`;
+    document.body.appendChild(m);
+  }
+  m.querySelector('.ac-msg').textContent=message;
+  m.classList.add('show');
+  const yesBtn=m.querySelector('#ac-yes'), noBtn=m.querySelector('#ac-no');
+  const cleanup=()=>{ m.classList.remove('show'); yesBtn.onclick=null; noBtn.onclick=null; };
+  yesBtn.onclick=()=>{ cleanup(); onYes&&onYes(); };
+  noBtn.onclick=cleanup;
 }
 
 function switchCoreMode(name) { launchSelectedModule(name); }
 
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && _activeModuleId) {
-    if (_activeModuleId === 'battle') {
-      const gs = document.getElementById('battle-game-screen');
-      if (gs && gs.style.display !== 'none') return;
-    }
-    exitToRoot();
+    exitToRoot(); // battle中プレイ中は内部でisMidGameplayGuardにより確認モーダルが挟まる
   }
+});
+
+// 改善6: 起動時に前回プレイのハイライトを反映
+highlightLastModule();
+// 改善10: 起動完了(ここまでの同期処理が終わった時点)でブートスクリーンを消す
+requestAnimationFrame(() => {
+  const boot = document.getElementById('algo-boot');
+  if (boot) { boot.classList.add('hid'); setTimeout(() => boot.remove(), 450); }
 });
 </script>
 
@@ -3565,16 +3717,24 @@ window.MathGame = (function () {
   function container() {
     return document.getElementById('module-math');
   }
+  // バグ修正: 以前はcontainer()(戻るボタンを含む外側要素)に直接innerHTML=で
+  // 上書きしていたため、画面遷移のたびに「← MENU」ボタンごと消えていた。
+  // 描画先を内側の専用divに分離し、戻るボタンは巻き込まないようにする。
+  function contentEl() {
+    return document.getElementById('module-math-inner');
+  }
 
   // ─── 画面描画（innerHTML方式） ─────────────────
   function render() {
     const c = container();
     if (!c || !c.classList.contains('active')) return;
-    if (screen === "menu")   { c.innerHTML = renderMenu(); }
-    if (screen === "diff")   { c.innerHTML = renderDiffPicker(); }
-    if (screen === "custom") { c.innerHTML = renderCustomSetup(); }
-    if (screen === "game")   { c.innerHTML = renderGame(); }
-    if (screen === "result") { c.innerHTML = renderResult(); }
+    const el = contentEl();
+    if (!el) return;
+    if (screen === "menu")   { el.innerHTML = renderMenu(); }
+    if (screen === "diff")   { el.innerHTML = renderDiffPicker(); }
+    if (screen === "custom") { el.innerHTML = renderCustomSetup(); }
+    if (screen === "game")   { el.innerHTML = renderGame(); }
+    if (screen === "result") { el.innerHTML = renderResult(); }
     attachEventHandlers();
   }
 
@@ -4177,14 +4337,20 @@ window.MergeGame = (function () {
   function container() {
     return document.getElementById('module-merge');
   }
+  // バグ修正: MODULE 03と同一の原因(戻るボタンごと上書き)。描画先を内側divに分離。
+  function contentEl() {
+    return document.getElementById('module-merge-inner');
+  }
 
   // ─── 描画 ─────────────────────────────────────
   function render() {
     const c = container();
     if (!c || !c.classList.contains('active')) return;
-    if (screen === "menu")   c.innerHTML = renderMenu();
-    if (screen === "game")   c.innerHTML = renderGameScreen();
-    if (screen === "result") c.innerHTML = renderResult();
+    const el = contentEl();
+    if (!el) return;
+    if (screen === "menu")   el.innerHTML = renderMenu();
+    if (screen === "game")   el.innerHTML = renderGameScreen();
+    if (screen === "result") el.innerHTML = renderResult();
     attachHandlers();
   }
 
