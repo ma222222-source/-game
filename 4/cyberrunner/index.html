@@ -556,7 +556,8 @@ function submitGlobalScore(){
       headers:{'Content-Type':'text/plain;charset=utf-8'},
       body:JSON.stringify({name:SD.playerName||'GUEST',score:score,title:SD.equippedTitle||'なし',comp:calcComp()}),
     }).then(r=>r.json()).then(d=>{
-      if(d&&d.ok&&Array.isArray(d.ranking)){ globalRanks=d.ranking; if(rankView==='global') renderActiveRank(); }
+      // 修正3: サーバー側の返却件数に関わらず、クライアント側でもトップ10に制限する(二重の担保)
+      if(d&&d.ok&&Array.isArray(d.ranking)){ globalRanks=d.ranking.slice(0,10); if(rankView==='global') renderActiveRank(); }
     }).catch(()=>{ /* 通信失敗は無視 */ });
   }catch(e){ /* 無視 */ }
 }
@@ -565,7 +566,8 @@ function fetchGlobalRanks(){
   if(!GAS_ENABLED) return;
   try{
     fetch(GAS_URL,{method:'GET'}).then(r=>r.json()).then(d=>{
-      if(d&&d.ok&&Array.isArray(d.ranking)){ globalRanks=d.ranking; if(rankView==='global') renderActiveRank(); }
+      // 修正3: サーバー側の返却件数に関わらず、クライアント側でもトップ10に制限する(二重の担保)
+      if(d&&d.ok&&Array.isArray(d.ranking)){ globalRanks=d.ranking.slice(0,10); if(rankView==='global') renderActiveRank(); }
     }).catch(()=>{});
   }catch(e){}
 }
@@ -1048,6 +1050,15 @@ let charFovBias=0;
 
 function updatePlayer(delta){
   if(isJump){ playerVY+=GRAVITY*delta; playerY+=playerVY*delta; if(playerY<=NORMAL_Y){playerY=NORMAL_Y;playerVY=0;isJump=false;showState('');} }
+  // ── バグ修正: しゃがみ解除の自己修復ウォッチドッグ ──────────────
+  // 以前は「keyup/touchendイベントが発火した時だけ」stopDuck()が呼ばれる設計だったため、
+  // フォーカス喪失やブラウザのジェスチャー割り込み等でそのイベントが1回でも取りこぼされると、
+  // isDuckがtrueのまま二度と解除されない(＝しゃがみっぱなしになる)不具合があった。
+  // 対策: 毎フレーム「実際に入力が押され続けているか」を直接調べ、押されていないのに
+  // isDuckがtrueならその場で強制解除する。個々のイベント発火経路(キーボード/タッチ/物理GPIO
+  // ボタン経由の仮想キー)を信頼せず、常に実態と同期させることで根本的に解消する。
+  const duckKeyPhysicallyHeld = keysDown.has('ArrowDown')||keysDown.has('s')||keysDown.has('S');
+  if(isDuck && !isJump && !duckKeyPhysicallyHeld && !duckHeld){ stopDuck(); }
   if(isDuck&&!isJump) playerY=DUCK_Y; else if(!isJump) playerY=NORMAL_Y;
   const dxL=targetX-playerX;
   const prevX=playerX;
@@ -2009,21 +2020,49 @@ const MOCK_RANK=[
   {name:'名無しの速者', score:31200,title:'なし',                comp:25},
 ];
 // ランキングは localStorage に永続保存する。
-// 初回起動(保存なし)のみ MOCK_RANK を初期表示に使う。
-let persistentRanks=MOCK_RANK.slice();
+// バグ修正: 以前は persistentRanks の初期値が MOCK_RANK.slice() だったため、
+// 「保存データがまだ無い状態で1プレイ終える」と、サンプルのダミー成績(MOCK_RANK)に
+// 実際のスコアが混ざったまま永続保存されてしまい、以後ずっとダミーデータが
+// 本物のランキングに居座り続ける不具合があった。
+// 対策: persistentRanks には「本物の保存データ」だけを保持させ、
+// 表示専用としてのみ MOCK_RANK を空の時のフォールバックに使う(保存はしない)。
+let persistentRanks=[];
 function loadRanks(){
-  if(!storageAvailable) return;
+  if(!storageAvailable){
+    console.warn('[ranking] localStorageが利用できない環境のため、ランキングは保存されません(このセッション限りの表示になります)');
+    return;
+  }
   try{
     const raw=window.localStorage.getItem(RANK_KEY);
-    if(raw){
-      const arr=JSON.parse(raw);
-      if(Array.isArray(arr)) persistentRanks=arr;
+    if(!raw){ console.info('[ranking] 保存データなし(初回起動、または初期化直後)'); return; }
+    const arr=JSON.parse(raw);
+    if(!Array.isArray(arr)){
+      console.error('[ranking] 保存データの形式が不正(配列ではない)。破損の可能性があるため無視します。中身:', arr);
+      return;
     }
-  }catch(e){ /* 破損時はMOCKのまま */ }
+    // 各エントリの形を検証し、壊れたものは除外(1件の破損で全体が消えるのを防ぐ)
+    const cleaned=arr.filter(r=>r&&typeof r==='object').map(r=>({
+      name:String(r.name||'GUEST').slice(0,12),
+      score:Number(r.score)||0,
+      title:String(r.title||'なし'),
+      comp:Number(r.comp)||0,
+    }));
+    if(cleaned.length!==arr.length){
+      console.warn('[ranking] 一部のエントリが不正な形式だったため除外しました。元:',arr.length,'→有効:',cleaned.length);
+    }
+    persistentRanks=cleaned;
+    console.info('[ranking] 保存データを復元しました。件数:',persistentRanks.length);
+  }catch(e){
+    console.error('[ranking] 保存データの読み込みに失敗(JSON破損の可能性)。空の状態から開始します。エラー:',e);
+  }
 }
 function saveRanks(){
-  if(!storageAvailable) return;
-  try{ window.localStorage.setItem(RANK_KEY, JSON.stringify(persistentRanks)); }catch(e){}
+  if(!storageAvailable){
+    console.warn('[ranking] localStorageが利用できないため保存をスキップしました');
+    return;
+  }
+  try{ window.localStorage.setItem(RANK_KEY, JSON.stringify(persistentRanks)); }
+  catch(e){ console.error('[ranking] 保存に失敗しました(容量超過等)。エラー:',e); }
 }
 
 // 今回のプレイ結果を永続ランキングに追加
@@ -2035,6 +2074,7 @@ function addToSessionRank(){
     comp: calcComp(),
   });
   persistentRanks.sort((a,b)=>b.score-a.score);
+  // 修正3: ランキングはトップ10件までに制限(フェッチ・保存・表示すべてこの1箇所で担保)
   persistentRanks=persistentRanks.slice(0,10);
   saveRanks();
   renderActiveRank();
@@ -2044,8 +2084,12 @@ function addToSessionRank(){
 function renderRankBoard(data){
   const rows=document.getElementById('rb-rows');
   if(!rows) return;
+  // 修正3: 表示も念のためトップ10件までに制限(データ側で既に10件だが、二重に保証する)
+  // 本物の保存データが無い(まだ誰もプレイしていない)場合のみ、表示用サンプルを見せる。
+  // このサンプルは保存対象には一切含めない(addToSessionRankはpersistentRanksを直接操作するため)。
+  const display=(data&&data.length?data:MOCK_RANK).slice(0,10);
   const medal=['🥇','🥈','🥉'];
-  rows.innerHTML=data.map((r,i)=>`
+  rows.innerHTML=display.map((r,i)=>`
     <div class="rb-row ${i===0?'top1':i===1?'top2':i===2?'top3':''}" style="flex-direction:column;margin-bottom:5px;border-bottom:1px solid rgba(0,243,255,.08);padding-bottom:4px;">
       <div style="display:flex;justify-content:space-between;width:100%;">
         <span style="color:${i===0?'#ffd700':i===1?'#c0c0c0':i===2?'#cd7f32':'inherit'}">${medal[i]||(i+1)+'.'} ${r.name||'GUEST'}${r.title&&r.title!=='なし'?'<span style="color:#ffd700;font-size:8px"> '+r.title+'</span>':''}</span>
