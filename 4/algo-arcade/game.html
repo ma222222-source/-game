@@ -1361,6 +1361,13 @@ body{
   min-height:clamp(90px,25vw,130px);
   flex-wrap:wrap;          /* 多枚数で2行へ */
   padding:4px 0;
+  /* ── 署名要素の土台 ──
+     このゲームの主題は「並べ替え(ソート)」そのもの。その本質である"交換"を
+     体験として伝えるため、ステージに遠近感を持たせ、カードが弧を描いて
+     すれ違う3Dアニメーションを成立させる。 */
+  perspective:900px;
+  perspective-origin:50% 40%;
+  transform-style:preserve-3d;
 }
 
 /* カード本体 */
@@ -1369,10 +1376,43 @@ body{
   cursor:pointer;position:relative;
   transition:transform 0.18s cubic-bezier(.34,1.56,.64,1),box-shadow 0.18s ease;
   user-select:none;flex-shrink:0;
+  transform-style:preserve-3d;
   /* タップ操作感 */
   touch-action:manipulation;
   -webkit-tap-highlight-color:transparent;
 }
+/* ── 交換アニメーション ──
+   入れ替わる2枚が、互いに逆方向へ弧を描きながら奥/手前へすれ違う。
+   単なる位置の入れ替えではなく「物理的にすれ違った」と感じられるよう、
+   Z方向の移動と回転を組み合わせている。 */
+.card.swap-fly{
+  z-index:50;
+  animation:cardSwapArc var(--swap-dur,420ms) cubic-bezier(.45,.05,.3,1) forwards;
+}
+@keyframes cardSwapArc{
+  0%   { transform:translate3d(0,0,0) rotateY(0deg) rotateZ(0deg); }
+  35%  { transform:translate3d(calc(var(--swap-dx) * 0.4),-26px,90px) rotateY(38deg) rotateZ(-7deg); }
+  65%  { transform:translate3d(calc(var(--swap-dx) * 0.75),-16px,60px) rotateY(24deg) rotateZ(-3deg); }
+  100% { transform:translate3d(var(--swap-dx),0,0) rotateY(0deg) rotateZ(0deg); }
+}
+/* すれ違う相手側は奥を通る(2枚が重ならず、交換の関係が読み取れる) */
+.card.swap-fly.behind{
+  z-index:40;
+  animation-name:cardSwapArcBehind;
+}
+@keyframes cardSwapArcBehind{
+  0%   { transform:translate3d(0,0,0) rotateY(0deg) rotateZ(0deg); }
+  35%  { transform:translate3d(calc(var(--swap-dx) * 0.4),22px,-110px) rotateY(-38deg) rotateZ(7deg); }
+  65%  { transform:translate3d(calc(var(--swap-dx) * 0.75),14px,-70px) rotateY(-24deg) rotateZ(3deg); }
+  100% { transform:translate3d(var(--swap-dx),0,0) rotateY(0deg) rotateZ(0deg); }
+}
+/* 交換直後に正解位置へ収まったカードの着地演出 */
+@keyframes cardLandCorrect{
+  0%   { transform:scale(1); }
+  40%  { transform:scale(1.14); }
+  100% { transform:scale(1); }
+}
+.card.just-correct{ animation:cardLandCorrect .34s cubic-bezier(.34,1.56,.64,1); }
 .card-inner{
   width:100%;height:100%;border-radius:inherit;
   background:linear-gradient(145deg,#0d1b3e,#1a0533);
@@ -3028,10 +3068,17 @@ function handleCardClick(idx){
   if(S.selectedIdx===null){
     S.selectedIdx=idx;
     setInstruction(`<span>[${idx}]番 (${S.cards[idx]}) 選択中</span> — もう1枚をクリック！`);
+    renderCards();renderHUD();renderStateGrid();updateBars();
   } else if(S.selectedIdx===idx){
     S.selectedIdx=null;setInstruction('カードをクリックして選択 → もう1枚で入れ替え');
-  } else {doSwap(S.selectedIdx,idx);S.selectedIdx=null;}
-  renderCards();renderHUD();renderStateGrid();updateBars();
+    renderCards();renderHUD();renderStateGrid();updateBars();
+  } else {
+    // 交換時は再描画をアニメーション完了後(applySwap内)に任せる。
+    // ここで即座に再描画するとアニメーション中のカードが消えてしまう。
+    const from=S.selectedIdx;
+    S.selectedIdx=null;
+    doSwap(from,idx);
+  }
 }
 
 function handleDragStart(e,idx){S.isDragging=true;S.dragFromIdx=idx;e.dataTransfer.effectAllowed='move';}
@@ -3040,14 +3087,53 @@ function handleDragLeave(idx){document.querySelectorAll('.card')[idx]?.classList
 function handleDrop(e,idx){
   e.preventDefault();const from=S.dragFromIdx;S.isDragging=false;
   document.querySelectorAll('.card').forEach(c=>c.classList.remove('drag-over'));
-  if(from!==null&&from!==idx)doSwap(from,idx);
-  S.dragFromIdx=null;renderCards();renderHUD();renderStateGrid();updateBars();
+  S.dragFromIdx=null;
+  if(from!==null&&from!==idx){
+    // 交換アニメーションを再生し、盤面更新と再描画は完了後に任せる
+    doSwap(from,idx);
+  } else {
+    renderCards();renderHUD();renderStateGrid();updateBars();
+  }
 }
 document.addEventListener('dragend',()=>{S.isDragging=false;});
 
+// ── 署名要素: カードが物理的にすれ違う3D交換アニメーション ──
+// データを書き換える前に2枚の実座標を測り、互いに逆方向へ弧を描かせる。
+// 「ソート＝交換の積み重ね」という主題を、操作のたびに体で感じられるようにする。
+function playSwapAnimation(i,j,onDone){
+  const stage=document.getElementById('battle-cards-stage');
+  const reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const cards=stage?stage.querySelectorAll('.card'):[];
+  const a=cards[i], b=cards[j];
+  if(reduce||!a||!b){ onDone(); return; }
+
+  const ra=a.getBoundingClientRect(), rb=b.getBoundingClientRect();
+  const dx=rb.left-ra.left;
+  const dur=Math.min(560,Math.max(340,Math.abs(dx)*1.1)); // 距離が離れているほど少し長く
+
+  a.style.setProperty('--swap-dx',dx+'px');
+  a.style.setProperty('--swap-dur',dur+'ms');
+  b.style.setProperty('--swap-dx',(-dx)+'px');
+  b.style.setProperty('--swap-dur',dur+'ms');
+  a.classList.add('swap-fly');
+  b.classList.add('swap-fly','behind'); // 片方は奥を通し、2枚の関係が読み取れるようにする
+
+  setTimeout(()=>{
+    a.classList.remove('swap-fly');
+    b.classList.remove('swap-fly','behind');
+    onDone();
+  },dur);
+}
+
 function doSwap(i,j){
   if(S.swapsDone>=DIFF[S.diff].swaps||S.gameOver)return;
+  // 交換アニメーションを先に見せてから、盤面の更新と判定を行う
+  playSwapAnimation(i,j,()=>applySwap(i,j));
+}
+
+function applySwap(i,j){
   const minBefore=calcMinSwapsCurrent();
+  const wasCorrectI=S.cards[i]===S.target[i], wasCorrectJ=S.cards[j]===S.target[j];
   [S.cards[i],S.cards[j]]=[S.cards[j],S.cards[i]];
   const minAfter=computeMinSwaps(S.cards,S.target);
   S.swapsDone++;
@@ -3090,6 +3176,17 @@ function doSwap(i,j){
   }
 
   const score=calcScore();
+  // アニメーション完了後の盤面反映(handleCardClick/handleDrop側から移譲されている)
+  renderCards();renderHUD();renderStateGrid();updateBars();
+  // 交換によって新たに正解位置へ収まったカードに着地演出を付ける
+  const stageEl=document.getElementById('battle-cards-stage');
+  if(stageEl){
+    const cardsEls=stageEl.querySelectorAll('.card');
+    [[i,wasCorrectI],[j,wasCorrectJ]].forEach(([idx,wasCorrect])=>{
+      const nowCorrect=S.cards[idx]===S.target[idx];
+      if(nowCorrect&&!wasCorrect&&cardsEls[idx]) cardsEls[idx].classList.add('just-correct');
+    });
+  }
   if(score===100){
     clearInterval(S.timerInterval);
     if(DIFF[S.diff].hidden)revealTarget();
@@ -3337,8 +3434,8 @@ function showWinModal(){
         <div class="modal-algo-desc">${algo.desc}</div>
       </div>
       ${theoryHTML}
-      <button class="btn btn-primary" onclick="resetCurrentGame()" style="width:100%;margin-bottom:7px;">⟳ もう一度 (${cfg.label})</button>
-      <button class="btn btn-secondary" onclick="goBack()" style="width:100%;">← 難易度を変える</button>
+      <button class="btn btn-primary" onclick="battleResetCurrent()" style="width:100%;margin-bottom:7px;">⟳ もう一度 (${cfg.label})</button>
+      <button class="btn btn-secondary" onclick="battleGoBack()" style="width:100%;">← 難易度を変える</button>
     </div></div>`;
 }
 
@@ -3359,8 +3456,8 @@ function showLoseModal(){
         <div class="modal-algo-desc">${best.desc}</div>
       </div>
       ${theoryHTML}
-      <button class="btn btn-primary" onclick="resetCurrentGame()" style="width:100%;margin-bottom:7px;">⟳ リトライ</button>
-      <button class="btn btn-secondary" onclick="goBack()" style="width:100%;">← 難易度変更</button>
+      <button class="btn btn-primary" onclick="battleResetCurrent()" style="width:100%;margin-bottom:7px;">⟳ リトライ</button>
+      <button class="btn btn-secondary" onclick="battleGoBack()" style="width:100%;">← 難易度変更</button>
     </div></div>`;
 }
 
@@ -3381,8 +3478,8 @@ function showTimeoutModal(){
         <div class="modal-algo-desc">${best.desc}</div>
       </div>
       ${theoryHTML}
-      <button class="btn btn-primary" onclick="resetCurrentGame()" style="width:100%;margin-bottom:7px;">⟳ リトライ</button>
-      <button class="btn btn-secondary" onclick="goBack()" style="width:100%;">← 難易度変更</button>
+      <button class="btn btn-primary" onclick="battleResetCurrent()" style="width:100%;margin-bottom:7px;">⟳ リトライ</button>
+      <button class="btn btn-secondary" onclick="battleGoBack()" style="width:100%;">← 難易度変更</button>
     </div></div>`;
 }
 
