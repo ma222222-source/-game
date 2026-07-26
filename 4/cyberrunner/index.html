@@ -152,8 +152,12 @@ body{
     repeating-linear-gradient(0deg,rgba(0,243,255,.045) 0 1px,transparent 1px 68px),
     rgba(2,2,14,.96);
   backdrop-filter:blur(8px);
-  opacity:1;transition:opacity .28s ease;}
-.ov.hid{opacity:0;pointer-events:none;display:flex;}
+  opacity:1;visibility:visible;transition:opacity .28s ease,visibility .28s ease;}
+.ov.hid{opacity:0;pointer-events:none;display:flex;visibility:hidden;}
+/* バグ修正: 戻るボタンを position:fixed で左上固定にした結果、非表示画面(.hid)の
+   ボタンも同じ座標に重なって存在し続けていた。親のopacityで見えてはいないが、
+   スタッキング次第で誤クリックや描画の不具合につながるため、visibility:hidden で
+   確実に無効化する。 */
 /* 回路基板っぽいノード(交点の小さな発光点)を四隅に散らす */
 .ov::before{content:'';position:absolute;inset:0;pointer-events:none;background-image:
     radial-gradient(circle,rgba(0,243,255,.5) 1.5px,transparent 1.6px);
@@ -3043,9 +3047,13 @@ document.getElementById('btn-gacha-back').addEventListener('click',()=>{ showScr
 document.getElementById('btn-sel-back').addEventListener('click',()=>{ showScreen('title-menu'); });
 document.getElementById('go-btn').addEventListener('click',()=>{
   savePlayerName();
+  gstate='ready'; // バグ修正: btn-retryと同様に明示遷移させ、初期化前の古い状態が残らないようにする
   showScreen(null); flashLaunch(); resetGame();
 });
 document.getElementById('btn-retry').addEventListener('click',()=>{
+  // バグ修正: 以前はgstateを更新せずresetGameを呼んでいたため、
+  // フラッシュ演出中の一瞬だけ 'gameover' 状態が残っていた。明示的に遷移させる。
+  gstate='ready';
   initAudio(); showScreen(null); flashLaunch(); resetGame();
 });
 // 改善6: ゲーム開始の瞬間、白いフラッシュで画面を切り替える(準備完了の実感を演出)
@@ -3159,26 +3167,10 @@ document.getElementById('btn-mute').addEventListener('click',()=>{
 });
 
 // 改善5: 無操作タイムアウト(文化祭運用: 客が離れたら自動でタイトルに戻す)
-// ゲームオーバー画面のまま90秒操作が無ければタイトルへ。何か操作があればタイマーはリセット。
-const IDLE_TIMEOUT_MS=90000;
-let idleTimer=null;
-function armIdleTimer(){
-  clearTimeout(idleTimer);
-  idleTimer=setTimeout(()=>{
-    // ゲームオーバー画面が出たまま放置された場合のみ発動
-    if(!document.getElementById('gover').classList.contains('hid')){
-      document.getElementById('gover').classList.add('hid');
-      gstate='title';
-      obsPool.forEach(g=>deactivateObs(g)); itemPool.forEach(m=>deactivateItem(m));
-      if(playerGroup){scene.remove(playerGroup);playerGroup=null;}
-      showScreen('title-menu');
-    }
-  },IDLE_TIMEOUT_MS);
-}
-['pointerdown','keydown','touchstart'].forEach(ev=>{
-  document.addEventListener(ev,()=>{ armIdleTimer(); },{passive:true});
-});
-armIdleTimer();
+// バグ修正: 以前はここに armIdleTimer による無操作タイムアウトがあったが、
+// 後から追加した checkIdleTimeout(ファイル末尾)と機能が重複しており、
+// 2系統が別々のタイミングで発火して予期しない画面遷移を起こす恐れがあった。
+// 新しい checkIdleTimeout 側に一本化するため、こちらは削除した。
 
 // 改善10: タイトル画面での初期化（UI更新）
 loadSave();          // 保存済みのコイン/図鑑/称号/ハイスコアを復元
@@ -3210,7 +3202,6 @@ function checkIdleTimeout(){
     lastInputT=performance.now();
     // 進行中のゲームを畳んでタイトルへ
     if(gstate==='playing'||gstate==='paused'||gstate==='ready'){
-      gstate='title';
       stopBeatLoop();
       obsPool.forEach(g=>deactivateObs(g)); itemPool.forEach(m=>deactivateItem(m));
       if(playerGroup){scene.remove(playerGroup);playerGroup=null;}
@@ -3220,6 +3211,10 @@ function checkIdleTimeout(){
       const pm=document.getElementById('pause-menu'); if(pm) pm.classList.add('hid');
       const cd=document.getElementById('countdown'); if(cd){ cd.classList.remove('show'); cd.innerHTML=''; }
     }
+    // バグ修正: 以前は playing/paused/ready の時しか gstate を書き換えていなかったため、
+    // ゲームオーバー画面やキャラ選択画面から復帰すると gstate が古い値のまま残っていた。
+    // どの状態から戻っても必ず title に揃える。
+    gstate='title';
     document.getElementById('gover').classList.add('hid');
     showScreen('title-menu');
   }
