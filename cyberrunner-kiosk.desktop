@@ -1,0 +1,5 @@
+[Desktop Entry]
+Type=Application
+Name=CyberRunner Kiosk
+Exec=chromium-browser --kiosk --noerrdialogs --disable-infobars --disable-session-crashed-bubble --autoplay-policy=no-user-gesture-required --disable-pinch --overscroll-history-navigation=0 --use-gl=egl --app=file:///home/pi/cyberrunner-pi/index.html
+X-GNOME-Autostart-enabled=true
