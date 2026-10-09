@@ -360,7 +360,7 @@
   }
   .exit-to-root-btn:active { transform: scale(0.95); }
 </style>
-</head>
+<script src="../shared/arcade.js"></script></head>
 <body>
 
 <div id="algo-boot">
@@ -371,7 +371,7 @@
 <!-- ════════════════════════════════════════════════
      ROOT MENU
      ════════════════════════════════════════════════ -->
-<div id="root-menu">
+<div id="root-menu"><button class="exit-to-root-btn" style="left:auto;right:10px" data-arcade-rank="cannon" data-rank-mode="standard">ランキング ↗</button>
   <div class="root-eyebrow">▶ ALGORITHM ARCADE — SYSTEM ONLINE</div>
   <div class="root-title">ALGO<br>ARCADE</div>
   <div class="root-sub">アルゴリズムを「読む」んじゃなく「遊んで」体に叩き込む。4つの実験室、好きな順に潜ってOK。</div>
@@ -2608,6 +2608,7 @@ window.CannonGame = (function () {
 
     const gradeColors = { 'S+': '#ff00e5', 'S': 'var(--accent-orange)', 'A': 'var(--accent-cyan)', 'B': 'var(--accent-green)', 'C': '#ffea00', 'D': 'rgba(200,240,255,0.4)' };
 
+    window.ArcadeHub?.save('cannon','standard',{score:score,title:'GRADE '+grade,comp:accuracy});
     document.getElementById('cannon-result-score').textContent = score;
     document.getElementById('cannon-res-correct').textContent = correct;
     document.getElementById('cannon-res-miss').textContent = miss;
@@ -3728,6 +3729,7 @@ function showNextBest(){
 
 // ═══ ベストスコア（localStorage）═══
 function saveScore(diff,score){
+  window.ArcadeHub?.save('battle',diff,{score:score,title:'整列クリア'});
   try{
     const key='scb_best_'+diff;
     const prev=parseInt(localStorage.getItem(key)||'0');
@@ -4402,6 +4404,7 @@ window.MathGame = (function () {
     const key = `hi_${mode}_${config.diffId || "normal"}`;
     const hi = parseInt(localStorage.getItem(key) || "0");
     if (score > hi) localStorage.setItem(key, score);
+    window.ArcadeHub?.save('math',mode+'_'+(config.diffId||'normal'),{score:score,title:'正解 '+correctCount+'問'});
     lastScore = score;
     lastCorrect = correctCount;
     lastDiffId = config.diffId || "normal";
@@ -4493,6 +4496,7 @@ window.MathGame = (function () {
     const key = `hi_endless_${config.diffId || "normal"}`;
     const hi = parseInt(localStorage.getItem(key) || "0");
     if (correctCount > hi) localStorage.setItem(key, correctCount);
+    window.ArcadeHub?.save('math','endless_'+(config.diffId||'normal'),{score:correctCount,title:'練習 / 正解数'});
     lastScore = correctCount;
     lastCorrect = correctCount;
     lastDiffId = config.diffId || "normal";
@@ -5038,6 +5042,7 @@ window.MergeGame = (function () {
     const key = `mgt_hi_${currentMode}`;
     const hi = parseInt(localStorage.getItem(key) || '0');
     if (score > hi) localStorage.setItem(key, score);
+    window.ArcadeHub?.save('merge',currentMode,{score:score,title:'最大コンボ '+maxCombo});
     screen = "result";
     render();
   }

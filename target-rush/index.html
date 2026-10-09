@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#080e18"><title>発電機キャリブレーション｜黒工電子科 ARCADE</title><link rel="stylesheet" href="style.css"><script src="config.js" defer></script><script src="ranking.js" defer></script><script src="audio.js" defer></script><script src="game.js" defer></script></head>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#080e18"><title>発電機キャリブレーション｜黒工電子科 ARCADE</title><link rel="stylesheet" href="style.css"><script src="../shared/arcade.js" defer></script><script src="config.js" defer></script><script src="ranking.js" defer></script><script src="audio.js" defer></script><script src="game.js" defer></script><script src="screen.js" defer></script></head>
 <body>
 <header class="topbar"><a class="back" href="../index.html"><span aria-hidden="true">←</span> ゲーム選択</a><span class="brand">黒工電子科 <b>ARCADE</b></span><button class="utility" id="sound" aria-label="BGMと効果音の切替" aria-pressed="true">音 ON</button></header>
 <main>
-<section class="hero"><div><p class="eyebrow">SYSTEM 03 / PRECISION ENGINEERING</p><h1>一瞬を、<em>つかめ。</em></h1></div><p class="hero-copy">タイミング × 指定キー × コンボ。<br>押すたびに逆回転。30秒で自己ベストへ。</p></section>
+<section class="hero"><div><p class="eyebrow">SYSTEM 03 / PRECISION ENGINEERING</p><h1>一瞬を、<em>つかめ。</em></h1></div><p class="hero-copy">タイミング × 指定キー × コンボ。<br>押すたびに逆回転。30秒で自己ベストへ。</p><div class="screen-tools"><button id="open-setup" class="utility">名前・難易度</button><button id="generator-board" class="utility" data-arcade-rank="generator">ランキング ↗</button></div></section>
 <div class="layout">
 <section class="machine" id="machine" aria-label="発電機キャリブレーション">
 <div class="machine-top"><div><span class="micro">GENERATOR CONTROL UNIT</span><h2>発電機キャリブレーション</h2></div><span class="status" id="status">STANDBY</span></div>

@@ -1,110 +1,12 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>黒工電子科 ARCADE — システム選択</title>
-<style>
-  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
-
-  :root{
-    --bg:#030812; --grid:rgba(0,229,255,0.05); --text:#c8f0ff;
-    --cyan:#00e5ff; --gold:#ffd700; --orange:#ff6d00; --purple:#9d4edd;
-  }
-  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
-  html{height:100%;}
-  body{
-    background:var(--bg);color:var(--text);font-family:'Orbitron',monospace;
-    min-height:100vh;min-height:100dvh;position:relative;overflow-x:hidden;
-    display:flex;flex-direction:column;align-items:center;justify-content:center;
-    padding:32px 20px 48px;
-  }
-  body::before{
-    content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
-    background-image:
-      linear-gradient(var(--grid) 1px,transparent 1px),
-      linear-gradient(90deg,var(--grid) 1px,transparent 1px);
-    background-size:40px 40px;animation:gridScroll 8s linear infinite;
-  }
-  @keyframes gridScroll{0%{transform:translateY(0);}100%{transform:translateY(40px);}}
-  body::after{
-    content:'';position:fixed;inset:0;pointer-events:none;z-index:1;
-    background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.15) 2px,rgba(0,0,0,.15) 4px);
-  }
-  #vignette{position:fixed;inset:0;z-index:2;pointer-events:none;
-    background:radial-gradient(ellipse at center,transparent 55%,rgba(0,0,4,.6) 100%);}
-
-  .eyebrow{position:relative;z-index:3;font-family:'Share Tech Mono',monospace;font-size:clamp(10px,2.6vw,12px);
-    letter-spacing:8px;color:rgba(0,229,255,.6);margin-bottom:12px;text-align:center;}
-  .hub-title{position:relative;z-index:3;font-size:clamp(30px,9vw,52px);font-weight:900;letter-spacing:6px;
-    color:#fff;text-align:center;line-height:1.15;text-shadow:0 0 24px rgba(0,229,255,.5);margin-bottom:6px;}
-  .hub-sub{position:relative;z-index:3;font-family:'Share Tech Mono',monospace;font-size:clamp(11px,2.8vw,13px);
-    color:rgba(200,240,255,.55);text-align:center;max-width:480px;margin-bottom:34px;letter-spacing:1px;line-height:1.7;}
-
-  .hub-selector{position:relative;z-index:3;display:grid;grid-template-columns:1fr;gap:18px;
-    width:100%;max-width:420px;}
-  @media(min-width:640px){.hub-selector{grid-template-columns:1fr 1fr;max-width:760px;}}
-
-  .hub-card{position:relative;border-radius:14px;padding:26px 20px;cursor:pointer;
-    background:rgba(255,255,255,.02);border:1.5px solid var(--card-border);
-    box-shadow:0 0 0 rgba(0,0,0,0);transition:transform .18s,box-shadow .18s,background .18s;
-    display:flex;flex-direction:column;gap:10px;text-decoration:none;color:inherit;
-    min-height:190px;}
-  .hub-card:active{transform:scale(.96);}
-  @media(hover:hover){
-    .hub-card:hover{background:var(--card-glow);box-shadow:0 0 32px var(--card-shadow);transform:translateY(-2px);}
-  }
-  .hub-card.c-runner{--card-border:rgba(0,243,255,.35);--card-glow:rgba(0,243,255,.08);--card-shadow:rgba(0,243,255,.35);}
-  .hub-card.c-algo{--card-border:rgba(255,109,0,.35);--card-glow:rgba(255,109,0,.08);--card-shadow:rgba(255,109,0,.35);}
-
-  .hub-card-tag{font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:3px;opacity:.55;}
-  .hub-card-icon{font-size:34px;line-height:1;}
-  .hub-card-name{font-size:clamp(18px,4.6vw,24px);font-weight:900;letter-spacing:2px;line-height:1.25;}
-  .c-runner .hub-card-name{color:var(--cyan);}
-  .c-algo .hub-card-name{color:var(--orange);}
-  .hub-card-desc{font-family:'Share Tech Mono',monospace;font-size:11px;letter-spacing:.5px;
-    color:rgba(200,220,255,.55);line-height:1.7;margin-top:auto;}
-
-  .hub-footer{position:relative;z-index:3;margin-top:30px;font-family:'Share Tech Mono',monospace;
-    font-size:9px;letter-spacing:3px;color:rgba(200,240,255,.3);text-align:center;}
-  .hub-card.c-generator{--card-border:rgba(103,248,207,.4);--card-glow:rgba(103,248,207,.08);--card-shadow:rgba(103,248,207,.25);}
-  .c-generator .hub-card-name{color:#67f8cf;}
-  @media(min-width:960px){.hub-selector{grid-template-columns:repeat(3,1fr);max-width:1100px;}}
-</style>
-</head>
-<body>
-<div id="vignette"></div>
-<div class="eyebrow">▶ 黒工電子科 — アーケードシステム</div>
-<div class="hub-title">SYSTEM SELECT</div>
-<div class="hub-sub">遊びたいアーケードを選んでほしい。それぞれ独立したシステムとして動作する。</div>
-
-<div class="hub-selector">
-  <a class="hub-card c-runner" href="cyberrunner/index.html">
-    <div class="hub-card-tag">SYSTEM 01 — ランニングアクション</div>
-    <div class="hub-card-icon">🏃</div>
-    <div class="hub-card-name">CYBER RUNNER</div>
-    <div class="hub-card-desc">サイバーパンクな障害物ランナー。ジャンプ・しゃがみ・スキルで駆け抜けろ。ガチャ・図鑑・ランキングあり。</div>
-  </a>
-
-  <a class="hub-card c-algo" href="algo-arcade/game.html">
-    <div class="hub-card-tag">SYSTEM 02 — アルゴリズム体験</div>
-    <div class="hub-card-icon">🧠</div>
-    <div class="hub-card-name">ALGO ARCADE</div>
-    <div class="hub-card-desc">仕分け・整列・暗算・マージソートを遊んで体に叩き込む、4モジュール構成の頭脳系アーケード。</div>
-  </a>
-
-  <a class="hub-card c-generator" href="target-rush/index.html">
-    <div class="hub-card-tag">SYSTEM 03 — タイミング＆指定キー</div>
-    <div class="hub-card-icon" aria-hidden="true">⚙</div>
-    <div class="hub-card-name">GENERATOR<br>CALIBRATION</div>
-    <div class="hub-card-desc">回る針を指定キーで調整。3段階の難易度・コンボ・称号・難易度別TOP10。30秒で自己ベストを狙おう。</div>
-  </a>
-
-</div>
-
-<div class="hub-footer">SELECT A SYSTEM TO BEGIN</div>
-</body>
-</html>
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#09121c"><title>黒工電子科 ARCADE｜ゲーム選択</title><script src="shared/arcade.js" defer></script><style>
+:root{--bg:#08111b;--white:#eef8fc;--muted:#a7bdcb;--line:#284450}*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 50% 0,#12445280,transparent 65%),var(--bg);color:var(--white);font-family:Meiryo,"Yu Gothic",sans-serif;min-height:100dvh;height:100dvh;display:grid;grid-template-rows:auto 1fr auto;padding:0 clamp(18px,4vw,72px);overflow:hidden}body::before{content:"";position:fixed;inset:0;pointer-events:none;background:linear-gradient(#42c3dc07 1px,transparent 1px),linear-gradient(90deg,#42c3dc07 1px,transparent 1px);background-size:44px 44px}header,main,footer{position:relative;max-width:1380px;width:100%;margin:auto}header{display:flex;align-items:center;justify-content:space-between;padding:18px 0;border-bottom:1px solid var(--line);gap:12px}.brand{font-size:14px;font-weight:900;letter-spacing:.07em}.brand b{color:#80e6e5;font-family:Consolas;margin-left:9px}.event{border:1px solid #477a80;border-radius:99px;font-size:10px;padding:4px 10px;color:#adeee7}main{display:grid;grid-template-rows:auto 1fr auto;gap:clamp(16px,3vh,30px);min-height:0;height:100%;padding:clamp(16px,3vh,32px) 0}.hero{display:flex;align-items:end;justify-content:space-between;gap:18px}.eyebrow{color:#89dce5;font-family:Consolas;font-size:10px;letter-spacing:.2em;margin:0 0 6px}h1{font-size:clamp(28px,3.5vw,50px);line-height:1.35;letter-spacing:-.06em;margin:0}.hero p:last-child{font-size:12px;color:var(--muted);line-height:1.8;margin:0}.selector{align-items:center;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px;min-height:0}.card{height:100%;max-height:520px;--accent:#72dfff;position:relative;text-decoration:none;color:inherit;display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden;padding:clamp(18px,2vw,30px);border:1px solid #39616e;border-radius:18px;background:linear-gradient(145deg,#18303e,#0c1722 75%);transition:border-color .2s,background .2s,transform .2s}.card:nth-child(2){--accent:#ffc592}.card:nth-child(3){--accent:#83eacb}.card::after{content:"";position:absolute;width:180px;height:180px;border-radius:50%;background:var(--accent);opacity:.035;right:-70px;top:30px;pointer-events:none}.card:hover{border-color:var(--accent);background:linear-gradient(145deg,#213f4b,#101f2b 75%);transform:translateY(-3px)}.card:focus-visible,button:focus-visible,input:focus-visible{outline:3px solid #ffe19a;outline-offset:3px}.card-top{display:flex;justify-content:space-between;align-items:center;gap:8px;color:var(--accent);font:10px Consolas;letter-spacing:.08em}.card-top span:last-child{border:1px solid #4e7680;border-radius:5px;padding:2px 6px;white-space:nowrap}.art{flex:1;min-height:54px;max-height:190px;display:grid;place-items:center;margin:9px 0}.art svg{width:100%;height:100%;max-height:174px;stroke:var(--accent);fill:none}.card h2{font-size:clamp(24px,2.1vw,36px);margin:0;line-height:1.35;letter-spacing:-.04em}.english{font:10px Consolas;color:var(--accent);letter-spacing:.1em;margin:5px 0 10px}.desc{color:var(--muted);font-size:12px;line-height:1.8;margin:0;min-height:43px}.card-foot{display:flex;justify-content:space-between;align-items:center;margin-top:clamp(12px,2vh,24px);padding-top:12px;border-top:1px solid #36505d;font-size:11px}.card-foot b{font-size:18px;color:var(--accent)}.tools{display:flex;align-items:center;justify-content:space-between;border:1px solid #34545f;border-radius:12px;padding:14px 18px;background:#10202e;gap:18px}.profile{display:flex;gap:14px;align-items:center;min-width:0}.profile label{font-size:12px;white-space:nowrap}.profile small{display:block;font-size:9px;color:var(--muted)}.profile input{background:#07111b;border:1px solid #557684;border-radius:6px;color:white;height:44px;width:200px;font:16px Meiryo;padding:8px 12px;min-width:0}.rank-button{font:700 13px Meiryo;color:#0c2623;background:#bfeccc;border:0;border-radius:8px;padding:12px 18px;min-height:44px;cursor:pointer;white-space:nowrap}footer{display:flex;justify-content:space-between;gap:12px;padding:12px 0 16px;font-size:10px;color:var(--muted)}.dial-hand{transform-origin:100px 75px;animation:rotatehand 5s ease-in-out infinite alternate}@keyframes rotatehand{from{transform:rotate(-80deg)}to{transform:rotate(80deg)}}
+@media(max-width:740px){body{padding:0 14px}header{padding:11px 0}.brand{font-size:11px}.event{font-size:8px;padding:3px 7px}main{gap:12px;padding:14px 0}.hero{display:block}.eyebrow{font-size:8px;letter-spacing:.12em}h1{font-size:27px}.hero p:last-child{font-size:10px;margin-top:4px}.selector{grid-template-columns:1fr;gap:10px}.card{display:grid;grid-template-columns:70px 1fr;grid-template-rows:auto 1fr auto;padding:12px 14px;column-gap:14px;border-radius:12px}.card-top{grid-column:2;font-size:8px;letter-spacing:0}.card-top span:last-child{display:none}.art{grid-column:1;grid-row:1 / 4;height:70px;min-height:0;max-height:none;margin:0;align-self:center}.card h2{grid-column:2;font-size:21px;margin-top:3px;align-self:end}.english{grid-column:2;font-size:8px;margin:1px 0 0}.desc{display:none}.card-foot{position:absolute;right:15px;bottom:12px;border:0;margin:0;padding:0}.card-foot span{display:none}.card-foot b{font-size:19px}.tools{padding:11px 12px;gap:12px}.profile{display:block;flex:1}.profile label{display:block;font-size:10px;margin-bottom:4px}.profile small{display:none}.profile input{width:100%;height:40px;font-size:16px}.rank-button{font-size:11px;min-height:44px;padding:10px 12px}footer{font-size:8px;padding:8px 0 12px}.hero p:last-child br{display:none}}
+@media(max-height:720px) and (min-width:741px){header{padding:12px 0}main{padding:14px 0;gap:14px}h1{font-size:34px}.art{max-height:110px}.card{padding:18px}.card h2{font-size:27px}.tools{padding:10px 14px}.desc{font-size:11px}.card-foot{margin-top:10px;padding-top:10px}footer{padding:8px 0}}
+@media(max-width:740px) and (max-height:620px){.hero p:last-child{display:none}.hero h1{font-size:23px}main{gap:9px;padding:9px 0}.card{padding:9px 12px}.art{height:55px}.card h2{font-size:19px}.tools{padding:8px 10px}.profile label{margin:0}footer{padding:5px 0;font-size:7px}}
+@media(max-width:740px) and (max-height:420px){.hero,.event,.art,.english,footer{display:none}.selector{grid-template-columns:repeat(3,1fr);gap:8px}.card{display:flex;padding:12px;justify-content:center}.card h2{font-size:18px;margin-top:9px}.card-top{font-size:8px}.card-foot{right:10px;bottom:8px}.tools{padding:8px}.profile{display:flex;align-items:center;gap:10px}.profile label{margin:0}.profile input{width:180px}.brand{font-size:12px}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style></head><body><header><span class="brand">黒工電子科 <b>ARCADE</b></span><span class="event">文化祭 / 3 SYSTEMS</span></header><main><section class="hero"><div><p class="eyebrow">CHOOSE YOUR NEXT CHALLENGE</p><h1>さあ、次の記録へ。</h1></div><p>走る。考える。一瞬をつかむ。<br>好きなゲームを選んで、友達と競おう。</p></section><nav class="selector" aria-label="ゲーム選択">
+<a class="card c-runner" href="cyberrunner/index.html"><div class="card-top"><span>01 / ACTION</span><span>反射神経</span></div><div class="art" aria-hidden="true"><svg viewBox="0 0 200 150"><path d="M25 135L78 22H122L175 135M100 25V139M60 99H141M70 74H128M81 49H119" opacity=".3"/><circle cx="109" cy="35" r="8" stroke-width="3"/><path d="M103 48L88 71L101 84L116 94L128 117M92 70L78 105L66 116M96 63L123 73" stroke-width="4" stroke-linecap="round"/><path d="M30 122L40 102H65L57 122ZM133 78L127 65H149L156 78Z" stroke-dasharray="3 3"/></svg></div><h2>走り抜けろ。</h2><p class="english">CYBER RUNNER</p><p class="desc">ジャンプとスキルで障害物を突破。<br>街を駆け抜けて、最高記録へ。</p><div class="card-foot"><span>アクション / ガチャ・図鑑</span><b>→</b></div></a>
+<a class="card c-algo" href="algo-arcade/game.html"><div class="card-top"><span>02 / LOGIC</span><span>考える力</span></div><div class="art" aria-hidden="true"><svg viewBox="0 0 200 150"><rect x="27" y="56" width="37" height="72" rx="5" stroke-width="2"/><rect x="82" y="28" width="37" height="100" rx="5" stroke-width="2"/><rect x="137" y="77" width="37" height="51" rx="5" stroke-width="2"/><path d="M40 74H51M40 87H51M95 45H106M95 58H106M95 71H106M150 94H161M20 139H180M45 35L61 20L77 35M122 56L138 41L154 56"/><text x="46" y="115" text-anchor="middle" fill="#ffc592" stroke="none" font-family="monospace" font-size="18">2</text><text x="100" y="115" text-anchor="middle" fill="#ffc592" stroke="none" font-family="monospace" font-size="18">1</text><text x="155" y="115" text-anchor="middle" fill="#ffc592" stroke="none" font-family="monospace" font-size="18">3</text></svg></div><h2>ひらめきを試せ。</h2><p class="english">ALGO ARCADE</p><p class="desc">仕分け・整列・暗算・マージ。<br>4つのゲームで頭脳に挑戦。</p><div class="card-foot"><span>頭脳ゲーム / 4 MODULES</span><b>→</b></div></a>
+<a class="card c-generator" href="target-rush/index.html"><div class="card-top"><span>03 / PRECISION</span><span>タイミング</span></div><div class="art" aria-hidden="true"><svg viewBox="0 0 200 150"><circle cx="100" cy="75" r="62" opacity=".3"/><circle cx="100" cy="75" r="55" stroke-dasharray="1 5"/><path d="M149 73A49 49 0 0 1 112 123" stroke-width="12"/><circle cx="100" cy="75" r="24" stroke-width="2"/><g class="dial-hand"><path d="M100 75V22" stroke="#edf7f8" stroke-width="2"/><circle cx="100" cy="20" r="3" fill="#edf7f8" stroke="none"/></g><text x="100" y="79" text-anchor="middle" fill="#edf7f8" stroke="none" font-family="monospace" font-size="10">SPACE</text></svg></div><h2>一瞬をつかめ。</h2><p class="english">GENERATOR CALIBRATION</p><p class="desc">押すたびに針が逆回転。<br>30秒間、コンボをつなぎきろう。</p><div class="card-foot"><span>発電機 / 3段階のキー制限</span><b>→</b></div></a>
+</nav><section class="tools"><div class="profile"><label for="player">ニックネーム<small>本名は入れないでね</small></label><input id="player" maxlength="12" placeholder="GUEST" autocomplete="off"></div><button class="rank-button" data-arcade-rank="generator">ランキングを見る ↗</button></section></main><footer><span>KOKKO FESTIVAL / ARCADE SYSTEM</span><span>この端末の記録を、全ゲーム共通の入口で。</span></footer><script>document.addEventListener('DOMContentLoaded',()=>{const field=document.getElementById('player');field.value=ArcadeHub.profile()==='GUEST'?'':ArcadeHub.profile();const save=()=>ArcadeHub.setProfile(field.value);field.addEventListener('change',save);document.querySelectorAll('.card').forEach(card=>card.addEventListener('click',save));});</script></body></html>

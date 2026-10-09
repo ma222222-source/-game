@@ -418,7 +418,7 @@ button:focus-visible, input:focus-visible, .cc:focus-visible, .col-item:focus-vi
   body::after{animation:none !important;}
 }
 </style>
-</head>
+<script src="../shared/arcade.js"></script></head>
 <body>
 <div id="crt-vignette"></div>
 <div id="boot-screen">
@@ -479,7 +479,7 @@ button:focus-visible, input:focus-visible, .cc:focus-visible, .col-item:focus-vi
   <div class="title-coins">🪙 <span id="coins-title">0</span> コイン</div>
   <button class="menu-btn" id="btn-start">▶ ゲームスタート</button>
   <button class="menu-btn" id="btn-gacha">🎰 ガチャ＆ずかん</button>
-  <button class="menu-btn" id="btn-rank">🏆 ランキング</button>
+  <button class="menu-btn" id="btn-rank" data-arcade-rank="cyberrunner" data-rank-mode="standard">🏆 ランキング</button>
   <div id="rank-board">
     <div class="rb-title">▶ ランキング — トップ5</div>
     <div id="rank-tabs">
@@ -2247,6 +2247,8 @@ function saveRanks(){
 
 // 今回のプレイ結果を永続ランキングに追加
 function addToSessionRank(){
+  window.ArcadeHub?.setProfile(SD.playerName);
+  window.ArcadeHub?.save('cyberrunner','standard',{name:SD.playerName||'GUEST',score:score,title:SD.equippedTitle||'挑戦者',comp:calcComp()});
   persistentRanks.push({
     name: SD.playerName||'GUEST',
     score: score,
@@ -3192,7 +3194,8 @@ document.getElementById('btn-mute').addEventListener('click',()=>{
 // 新しい checkIdleTimeout 側に一本化するため、こちらは削除した。
 
 // 改善10: タイトル画面での初期化（UI更新）
-loadSave();          // 保存済みのコイン/図鑑/称号/ハイスコアを復元
+loadSave();
+if(window.ArcadeHub?.profile()!=='GUEST') SD.playerName=window.ArcadeHub.profile();          // 保存済みのコイン/図鑑/称号/ハイスコアを復元
 loadRanks();         // 保存済みランキングを復元
 renderRankBoard(persistentRanks);
 updateCoinsUI();
