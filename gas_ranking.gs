@@ -179,7 +179,7 @@ function doPost(e){
   const game=arcadeGame(body.game),mode=arcadeMode(body.mode),row=arcadeValidate(body,game,mode);
   const lock=LockService.getScriptLock();lock.waitLock(10000);
   try{const sheet=arcadeLog(),last=sheet.getLastRow();const prior=last>1?sheet.getRange(2,9,last-1,1).createTextFinder(row[8]).matchEntireCell(true).findNext():null;
-   if(prior){const old=sheet.getRange(prior.getRow(),1,1,10).getValues()[0];if(old[1]!==game||old[2]!==mode||old[3]!==row[3]||Number(old[4])!==row[4])throw Error('requestId conflict');}
+   if(prior){const old=sheet.getRange(prior.getRow(),1,1,10).getValues()[0];if(old[1]!==game||old[2]!==mode||String(old[3]).replace(/^'(?=[=+\-@])/,'')!==String(row[3]).replace(/^'(?=[=+\-@])/,'')||Number(old[4])!==row[4])throw Error('requestId conflict');}
    else sheet.appendRow(row);
    arcadeRefreshBoard();SpreadsheetApp.flush();
    return jsonOut({ok:true,schema:ARCADE_SCHEMA,game:game,mode:mode,requestId:row[8],duplicate:!!prior,ranking:arcadeRanking(game,mode),serverTime:new Date().toISOString()});

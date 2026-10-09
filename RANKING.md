@@ -2,12 +2,12 @@
 
 Apps Scriptプロジェクト：`1VsUdLXSB_r9j2MnXh728Z30Y3xnbCI0vD_9Fgnkj0zRmRwxMylF-H-lR`。
 
-このプロジェクトの既存ウェブアプリをバージョン5へ更新しました。既存のGoogleスプレッドシートと`ranking`・`leaderboard`を保持し、新たに以下のシートを使います。
+このプロジェクトの既存ウェブアプリをバージョン6へ更新しました。既存のGoogleスプレッドシートと`ranking`・`leaderboard`を保持し、新たに以下のシートを使います。
 
 - `arcade_scores`：6ゲームの成績履歴。ゲーム・難易度・名前・得点・称号・送信IDを保存。
 - `ARCADE_RANKING`：成績を受信するたびに更新する、各ゲーム／難易度のTOP10。同じ名前は最高記録だけを表示。
 
-ゲームは終了時にCloudflareの同一オリジンAPI `/api/ranking` へ自動送信します。WorkerがApps Scriptへ中継するため、ブラウザでGoogleへのログインやCORS設定は不要です。
+ゲームは終了時にCloudflareの公開API `https://hh.matsukai0623.workers.dev/api/ranking` へ自動送信します。WorkerがApps Scriptへ中継するため、ブラウザでGoogleへのログインやCORS設定は不要。ローカルHTMLやPiのファイル起動からも同じ共有APIに送信できますです。
 
 ランキング画面が開いている間は5秒ごとに共有順位を取得します。通信に失敗した成績は端末に保管し、オンライン復帰時や15秒ごとの再送で同期します。同じ送信IDはサーバーで二重登録しません。失敗時に端末内の記録を表示する場合は、その旨を画面に明記します。
 
