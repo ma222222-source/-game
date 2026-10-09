@@ -418,7 +418,7 @@ button:focus-visible, input:focus-visible, .cc:focus-visible, .col-item:focus-vi
   body::after{animation:none !important;}
 }
 </style>
-<script src="../shared/arcade.js"></script></head>
+<script src="../shared/arcade.js"></script><style>#rank-board{display:none!important}</style></head>
 <body>
 <div id="crt-vignette"></div>
 <div id="boot-screen">
@@ -2260,7 +2260,7 @@ function addToSessionRank(){
   persistentRanks=persistentRanks.slice(0,10);
   saveRanks();
   renderActiveRank();
-  submitGlobalScore(); // 全員共有ランキングにも送信(有効時のみ・失敗しても無視)
+  // 共有送信はArcadeHub.saveで実施。旧APIへの重複送信はしない。
 }
 
 function renderRankBoard(data){

@@ -45,7 +45,7 @@ const TOP_N = 10;                       // トップ10固定(表示件数を変�
 const ADMIN_PASSWORD = '0623';          // 管理者リセット用の合言葉
 
 // GET: ランキング取得(leaderboardシートの計算結果をそのまま返す)
-function doGet(e) {
+function legacyDoGet(e) {
   const data = getRankingFromBoard();
   return ContentService
     .createTextOutput(JSON.stringify({ ok: true, ranking: data }))
@@ -53,7 +53,7 @@ function doGet(e) {
 }
 
 // POST: スコア送信 {name,score,title,comp} または 管理者リセット {action:'reset',password}
-function doPost(e) {
+function legacyDoPost(e) {
   try {
     const body = JSON.parse(e.postData.contents);
 
@@ -160,4 +160,50 @@ function resetRankingData() {
     sheet.getRange(2, 1, lastRow - 1, 5).clearContent();
   }
   ensureLeaderboardFormulas(); // データが無くなった状態でLARGEが空欄を返すよう再計算
+}
+
+/* 黒工 ARCADE共有ランキング。旧rankingシートと旧APIを保持する。 */
+const ARCADE_SCHEMA='kokko-arcade-v4';
+const ARCADE_GAMES=['cyberrunner','generator','cannon','battle','math','merge'];
+const ARCADE_LOG='arcade_scores';
+const ARCADE_BOARD='ARCADE_RANKING';
+function doGet(e){
+ try{const p=e&&e.parameter||{};if(p.action==='health')return jsonOut({ok:true,schema:ARCADE_SCHEMA,games:ARCADE_GAMES});
+  if(!p.game)return legacyDoGet(e);
+  const game=arcadeGame(p.game);if(p.action==='modes')return jsonOut({ok:true,schema:ARCADE_SCHEMA,game:game,modes:arcadeModes(game)});
+  const mode=arcadeMode(p.mode||'standard');return jsonOut({ok:true,schema:ARCADE_SCHEMA,game:game,mode:mode,ranking:arcadeRanking(game,mode),serverTime:new Date().toISOString()});
+ }catch(err){return jsonOut({ok:false,schema:ARCADE_SCHEMA,error:String(err.message||err)});}
+}
+function doPost(e){
+ try{const body=JSON.parse(e.postData.contents);if(!body.game)return legacyDoPost(e);
+  const game=arcadeGame(body.game),mode=arcadeMode(body.mode),row=arcadeValidate(body,game,mode);
+  const lock=LockService.getScriptLock();lock.waitLock(10000);
+  try{const sheet=arcadeLog(),last=sheet.getLastRow();const prior=last>1?sheet.getRange(2,9,last-1,1).createTextFinder(row[8]).matchEntireCell(true).findNext():null;
+   if(prior){const old=sheet.getRange(prior.getRow(),1,1,10).getValues()[0];if(old[1]!==game||old[2]!==mode||old[3]!==row[3]||Number(old[4])!==row[4])throw Error('requestId conflict');}
+   else sheet.appendRow(row);
+   arcadeRefreshBoard();SpreadsheetApp.flush();
+   return jsonOut({ok:true,schema:ARCADE_SCHEMA,game:game,mode:mode,requestId:row[8],duplicate:!!prior,ranking:arcadeRanking(game,mode),serverTime:new Date().toISOString()});
+  }finally{lock.releaseLock();}
+ }catch(err){return jsonOut({ok:false,schema:ARCADE_SCHEMA,error:String(err.message||err)});}
+}
+function arcadeGame(value){const game=String(value||'');if(ARCADE_GAMES.indexOf(game)<0)throw Error('Invalid game');return game;}
+function arcadeMode(value){const mode=String(value||'');if(!/^[a-zA-Z0-9_-]{1,48}$/.test(mode))throw Error('Invalid mode');return mode;}
+function arcadeText(value,length){const text=String(value||'').replace(/[\u0000-\u001f\u007f]/g,'').trim().slice(0,length);return /^[=+\-@]/.test(text)?"'"+text:text;}
+function arcadeValidate(body,game,mode){
+ const score=Number(body.score);if(!Number.isInteger(score)||score<0||score>10000000)throw Error('Invalid score');
+ const comp=Number(body.comp||0),combo=Number(body.combo||0);if(!Number.isFinite(comp)||comp<0||comp>100||!Number.isInteger(combo)||combo<0||combo>10000)throw Error('Invalid stats');
+ const id=String(body.requestId||'');if(!/^[a-zA-Z0-9_-]{12,96}$/.test(id))throw Error('Invalid requestId');
+ return[new Date(),game,mode,arcadeText(body.name||'GUEST',12)||'GUEST',score,arcadeText(body.title||'挑戦者',40),Math.round(comp),combo,id,mode.indexOf('test_')===0];
+}
+function arcadeLog(){const ss=SpreadsheetApp.getActiveSpreadsheet();if(!ss)throw Error('Spreadsheet not connected');let sheet=ss.getSheetByName(ARCADE_LOG);if(!sheet){sheet=ss.insertSheet(ARCADE_LOG);sheet.appendRow(['date','game','mode','name','score','title','comp','combo','requestId','test']);sheet.setFrozenRows(1);}return sheet;}
+function arcadeRows(){const sheet=arcadeLog(),last=sheet.getLastRow();const rows=last>1?sheet.getRange(2,1,last-1,10).getValues():[];const legacy=SpreadsheetApp.getActiveSpreadsheet().getSheetByName('ranking');if(legacy&&legacy.getLastRow()>1){legacy.getRange(2,1,legacy.getLastRow()-1,5).getValues().forEach(function(r){if(r[2]!==''&&Number.isFinite(Number(r[2])))rows.push([r[0],'cyberrunner','standard',r[1]||'GUEST',Number(r[2]),r[3]||'挑戦者',Number(r[4])||0,0,'legacy',false]);});}return rows;}
+function arcadeTop(rows){const players=Object.create(null);rows.forEach(function(r){const name=String(r[3]||'GUEST'),score=Number(r[4]);if(!Number.isFinite(score)||score<0)return;const old=players[name];if(!old||score>Number(old[4])||(score===Number(old[4])&&Number(r[6])>Number(old[6])))players[name]=r;});return Object.keys(players).map(function(n){return players[n];}).sort(function(a,b){return Number(b[4])-Number(a[4])||Number(b[6])-Number(a[6])||new Date(a[0]).getTime()-new Date(b[0]).getTime();}).slice(0,10);}
+function arcadeRanking(game,mode){return arcadeTop(arcadeRows().filter(function(r){return r[1]===game&&r[2]===mode;})).map(function(r){return{name:String(r[3]),score:Number(r[4]),title:String(r[5]||'挑戦者'),comp:Number(r[6])||0,combo:Number(r[7])||0};});}
+function arcadeModes(game){const found=Object.create(null);arcadeRows().forEach(function(r){if(r[1]===game&&String(r[2]).indexOf('test_')!==0)found[r[2]]=true;});return Object.keys(found).sort();}
+function arcadeRefreshBoard(){
+ const ss=SpreadsheetApp.getActiveSpreadsheet();let board=ss.getSheetByName(ARCADE_BOARD);if(!board){board=ss.insertSheet(ARCADE_BOARD);board.setFrozenRows(1);}
+ const groups=Object.create(null);arcadeRows().forEach(function(r){if(r[9]||String(r[2]).indexOf('test_')===0)return;const key=r[1]+'|'+r[2];if(!groups[key])groups[key]=[];groups[key].push(r);});
+ const rows=[['game','mode','rank','name','score','title','precision_or_collection','combo','updated_at']];
+ Object.keys(groups).sort().forEach(function(key){arcadeTop(groups[key]).forEach(function(r,i){rows.push([r[1],r[2],i+1,arcadeText(r[3],12),Number(r[4]),arcadeText(r[5],40),Number(r[6])||0,Number(r[7])||0,new Date()]);});});
+ const previous=board.getLastRow();board.getRange(1,1,rows.length,9).setValues(rows);if(previous>rows.length)board.getRange(rows.length+1,1,previous-rows.length,9).clearContent();
 }

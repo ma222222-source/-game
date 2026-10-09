@@ -1,0 +1,11 @@
+**
+!index.html
+!shared/
+!shared/**
+!target-rush/
+!target-rush/**
+!cyberrunner/
+!cyberrunner/**
+!algo-arcade/
+!algo-arcade/**
+**/.*
