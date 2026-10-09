@@ -16,3 +16,15 @@
 @media(max-width:360px){.keypad button{padding-left:1px;padding-right:1px}.keypad button[data-key=Space]{font-size:16px}}
 @media(prefers-reduced-motion:no-preference){.result{animation:resultReveal .3s ease both}}
 @keyframes resultReveal{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:translateY(0)}}
+
+/* 白系の計器パネル。最初のタイミングゲームの配色を継承。 */
+:root{--bg:#f7f5e9;--panel:#fffef8;--line:#cbd9ca;--white:#163a36;--muted:#536e62;--mint:#146454;--gold:#94600c;--red:#af3c27}
+body{background:var(--bg)}.machine{background:#fffef8;border-color:#577b67;box-shadow:6px 6px 0 #dce3d2}.panel{background:#fffef8}
+.utility{background:#fffef8;color:var(--white);border-color:#a5bca9}.setup input{background:#fff;color:var(--white);border-color:#a5bca9}
+.status{border-color:#14645450}.time-track{background:#d8e3d2}.combo-meter i{background:#d8e3d2}
+.primary{background:#e0ef80;color:#163a36;box-shadow:0 4px 0 #163a36}.primary:hover{background:#e8f5a0}.primary:disabled{background:#d4dfba}
+.machine-bottom{background:#f0f3e5}.keypad button{background:#fffef8;color:#163a36;border-color:#95af9d}.keypad button:active{background:#e0ef80}
+.rank-tabs [aria-pressed=true]{background:#e5efdd;border-color:#729b83;color:#163a36}.difficulty [aria-pressed=true]{background:#e5efdd}
+.legend i{background:#54ae90}.legend span:nth-child(2) i{background:#edc669}.corner{color:#536e62}
+.dial{filter:none}.machine.preview{opacity:1}
+@keyframes good{50%{box-shadow:inset 0 0 35px #58a97920,6px 6px 0 #dce3d2}}

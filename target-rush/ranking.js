@@ -1,6 +1,6 @@
 /* 名前・称号・TOP10の形式をCYBER RUNNERに合わせ、異なる競技の点数は混ぜない。 */
 (()=>{'use strict';
-const prefix='kokko_calibration_v3_',memory=new Map();let persistent=true;
+const prefix='kokko_calibration_v4_',memory=new Map();let persistent=true;
 function read(key,fallback){try{const raw=localStorage.getItem(key);return raw===null?fallback:JSON.parse(raw);}catch{persistent=false;return memory.has(key)?memory.get(key):fallback;}}
 function write(key,value){memory.set(key,value);try{localStorage.setItem(key,JSON.stringify(value));}catch{persistent=false;}}
 function cleanName(value){return String(value||'').replace(/[\u0000-\u001f\u007f]/g,'').trim().slice(0,12)||'GUEST';}
